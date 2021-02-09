@@ -1,0 +1,13 @@
+name: graphs-and-topology-for-chemists
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - deepchem=2.4
+  - h5py
+  - jupyter
+  - tensorflow-gpu=2.3
+  - tensorboard=2.3
+  - tensorflow-estimator=2.3
+  - rdkit
+  - scikit-learn
