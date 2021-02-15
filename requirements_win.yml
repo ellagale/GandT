@@ -11,3 +11,4 @@ dependencies:
   - tensorflow-estimator=2.3
   - rdkit
   - scikit-learn
+  - giotto-tda
