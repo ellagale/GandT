@@ -1,0 +1,14 @@
+name: graphs-and-topology-for-chemists-tf1
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - numpy=1.19.5
+  - deepchem=2.3
+  - scikit-learn<0.23
+  - h5py
+  - jupyter
+  - tensorflow-gpu<2
+  - rdkit
+  - scikit-learn
+  - pdbfixer
