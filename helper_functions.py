@@ -5,6 +5,9 @@ import os
 import pandas as pd
 import rdkit
 import numpy as np
+import h5py
+from sklearn.decomposition import PCA
+from collections import Counter
 # topology stuff
 from gtda.plotting import plot_point_cloud
 from gtda.homology import VietorisRipsPersistence
@@ -13,6 +16,7 @@ from gtda.diagrams import PersistenceEntropy
 from gtda.diagrams import NumberOfPoints
 from gtda.diagrams import Amplitude
 from sklearn.pipeline import make_union, Pipeline
+import helper_functions as h
 
 
 def coord_getter(data_dir, test_file, test_pdb_code, setting='pdb'):
@@ -152,28 +156,40 @@ def read_in_PDBBind_data(
 
         fh.close()
         df_cluster_core = pd.DataFrame(lines, columns=column_list_cluster)
-        df_cluster_core.head()
+        print('Sample of cluster file:')
+        print(df_cluster_core.head())
     else:
         df_cluster_core = ''
-    print('Sample of cluster file:')
-    print(df_cluster_core.head())
     return df_index_core, df_data_core, df_cluster_core
 
 
 def make_topological_features_for_PDBBind(df_cluster_core,
                                           PDB_or_mol2='mol2',
-                                          verbose=True,
+                                          verbose=False,
                                           Num_of_proteins=0,
                                           Num_of_features=3,
-                                          data_dir=''):
+                                          data_dir='',
+                                          do_specified_range=False,
+                                          selected_range=[]):
     """makes topological features from pdb and mol2 files in PDBBind
     df_cluster_core = dataframe of the cluster dataset
     PDB_or_mol2='mol2': pdb fro proteins, mol2 for ligands
     Num_of_proteins=0 nume of proteins to do, 0 is all
     Num_of_features: 3 for persistence entropy only, 9 for everything
+    do_specified_range: whether you will give the actual range
+    range: the range as a vector of indices
     """
-    if Num_of_proteins == 0:
-        Num_of_proteins = len(df_cluster_core)
+    if True:
+        if not do_specified_range:
+            # range is false
+            if Num_of_proteins == 0:
+                # does all proteins at once
+                Num_of_proteins = len(df_cluster_core)
+            selected_range = [x for x in range(Num_of_proteins)]
+
+        if do_specified_range:
+            Num_of_proteins = len(selected_range)
+
     point_ptr = -1
     # PDB_or_mol2='pdb'
     pdb_list = df_cluster_core['PDB_code']
@@ -214,9 +230,8 @@ def make_topological_features_for_PDBBind(df_cluster_core,
     else:
         print('Doing 3 features, persistence entropy only')
 
-    for mol_idx in range(Num_of_proteins):
-        if mol_idx % 50 == 0:
-            print('Got to Molecule no. ', mol_idx)
+    for mol_idx in selected_range:
+        print('Got to Molecule no. ', mol_idx)
         ### load da data
         file_location = os.path.join(data_dir,
                                      pdb_list[mol_idx],
@@ -243,7 +258,8 @@ def make_topological_features_for_PDBBind(df_cluster_core,
         elif Num_of_features == 18:
             X_basic = pipe.fit_transform(diagrams_basic)
         topol_feat_list.append([x for x in X_basic[0]])
-        print(X_basic)
+        if verbose:
+            print(X_basic)
 
     topol_feat_mat = np.array(topol_feat_list)
 
@@ -254,6 +270,8 @@ def create_and_merge_PDBBind_topol_features(df_cluster_core,
                                             Num_of_proteins=5,
                                             Num_of_features=18,
                                             data_dir='',
+                                            do_specified_range=False,
+                                            selected_range=[],
                                             verbose=False):
     """merges topological features for ligand nad protein into the same dataset
     i.e. each row has x protein features and y ligand features"""
@@ -264,7 +282,10 @@ def create_and_merge_PDBBind_topol_features(df_cluster_core,
                                                                                           verbose=verbose,
                                                                                           Num_of_proteins=Num_of_proteins,
                                                                                           Num_of_features=Num_of_features,
-                                                                                          data_dir=data_dir)
+                                                                                          data_dir=data_dir,
+                                                                                          do_specified_range=do_specified_range,
+                                                                                          selected_range=selected_range)
+
     # do proteins
     print('Doing the ligands')
     topol_feat_list_ligand, topol_feat_mat_ligand = make_topological_features_for_PDBBind(df_cluster_core,
@@ -272,13 +293,16 @@ def create_and_merge_PDBBind_topol_features(df_cluster_core,
                                                                                            verbose=verbose,
                                                                                            Num_of_proteins=Num_of_proteins,
                                                                                            Num_of_features=Num_of_features,
-                                                                                           data_dir=data_dir)
+                                                                                           data_dir=data_dir,
+                                                                                           do_specified_range=do_specified_range,
+                                                                                           selected_range=selected_range)
     # list version of data
     topl_PDB_all_core = [topol_feat_list_protein[i] + topol_feat_list_ligand[i] for i in
                          range(len(topol_feat_list_ligand))]
 
     # numpy version of data
     topl_PDB_all_core_mat = np.array(topl_PDB_all_core)
+    np.savetxt("test.txt", topl_PDB_all_core_mat)
     if verbose:
         print(topl_PDB_all_core)
         print(topl_PDB_all_core_mat)
@@ -369,3 +393,67 @@ def set_up_train_test_validate(
         print('Validation set indices:')
         print(validate_data_indices)
     return (train_X_data, train_y_data, test_X_data, test_y_data, validate_X_data, validate_y_data)
+
+
+def create_or_recreate_dataset(fh, datasetname, shape, dtype):
+    """
+    Create a dataset with the given parameters in the file pointed to by fh
+    if the dataset already exists then it will be deleted first.
+    """
+    try:
+        del fh[datasetname]
+    except KeyError:
+        pass
+    return fh.create_dataset(datasetname, shape, dtype)
+
+
+def Open_Train_File_Create_Datasets(data_dir,
+                                    outfile,
+                                    field,
+                                    norm_L2_field,
+                                    norm_mean_field,
+                                    norm_std_field,
+                                    label='molID'):
+    """Function to open the dataset, make new datasets to populate later,
+    grab the data to be normalised and return the file handle
+    N.B. does not shut the file"""
+    # Open, calc basic details
+    print(outfile)
+    fh = h5py.File(os.path.join(data_dir, outfile), 'r+')
+    num_of_rows, num_of_molecules, = basic_info_hdf5_dataset(fh, label=label)
+
+    # grabs the original data
+    data = fh[field]
+    row_shape = data.shape[1:]
+    # makes a new dataset of the same size
+    data_L2_out = create_or_recreate_dataset(fh, norm_L2_field, data.shape, data.dtype)
+    data_mean_out = create_or_recreate_dataset(fh, norm_mean_field, data.shape, data.dtype)
+    data_std_out = create_or_recreate_dataset(fh, norm_std_field, data.shape, data.dtype)
+
+    row_count = data.shape[0]
+    if not num_of_rows == row_count:
+        print('Error: num_of_rows from molID is not the same as the number found for {field}')
+    print(f'row_shape is {row_shape}')
+    return fh, data, data_L2_out, data_mean_out, data_std_out
+
+
+def basic_info_hdf5_dataset(hf, label='molID'):
+    """Calcs some basic data
+    hf is the file handle to hdf5 file
+    label is the unique ID label per class/molecule in hte dataset"""
+    molID_List_orig = hf[label]
+    num_of_rows = len(molID_List_orig)
+    print(f'num_of_ rows is:\t{num_of_rows}')
+    counted_molID_List = Counter(molID_List_orig)
+    molID_List = [x for x in counted_molID_List.keys()]
+    # print(molID_List)
+    num_of_molecules = len(molID_List)
+    print(f'num_of_molecules is:\t {num_of_molecules}')
+    egg = Counter(Counter(molID_List_orig).values())
+    if not len(egg.keys()) == 1:
+        print('Warning: Unbalanced dataset\nMolID: count')
+        print(counted_molID_List)
+    else:
+        num_of_augments = [x for x in egg.keys()][0]
+        print(f'num_of_augments is:\t{num_of_augments}')
+    return num_of_rows, num_of_molecules

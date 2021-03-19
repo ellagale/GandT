@@ -12,3 +12,8 @@ tda stuff comes from here
       archivePrefix={arXiv},
       primaryClass={cs.LG}
 }
+
+**Current issues!**
+
+DeepChem is being updated. Some featuresx work only with the new tensorflow2 version
+some work with the old ones! :(
