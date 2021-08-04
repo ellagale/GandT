@@ -19,44 +19,16 @@ import h5py
 import helper_functions as h
 
 import numpy as np
-import pandas as pd
-import matplotlib
-import matplotlib.pyplot as plt
-import matplotlib.tri
-import rdkit.Chem
-import rdkit.Chem.AllChem as Chem
-import rdkit.Chem.AllChem as AllChem
-from rdkit.Chem import Descriptors
-from rdkit.Chem import rdMolDescriptors
-import mpl_toolkits.mplot3d
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.decomposition import PCA
-from collections import Counter
+
 
 print("TensorFlow version: " + tf.__version__)
-
-# topology stuff
-from gtda.plotting import plot_point_cloud
-from gtda.homology import VietorisRipsPersistence
-from gtda.plotting import plot_diagram
-from gtda.diagrams import PersistenceEntropy
-from gtda.diagrams import NumberOfPoints
-from gtda.diagrams import Amplitude
-from sklearn.pipeline import make_union, Pipeline
 
 # fixc this at some point
 sys.path.append(r"C:\Users\ella_\Documents\GitHub\graphs_and_topology_for_chemistry")
 sys.path.append(r"C:\Users\ella_\Documents\GitHub\icosahedron_projection")
 
-import projection
-from projection.molecule import Molecule
-from projection.pdbmolecule import PDBMolecule
-from projection.mol2molecule import Mol2Molecule
 
-import helper_functions as h
-#from projection.face import Face
-
-# $UN THIS
+# CHANGE THIS IF NECESSARY
 save_dir=r'F:\Nextcloud\science\Datasets\converted_pdbbind\v2015'
 data_dir=r'F:\Nextcloud\science\Datasets\pdbbind\v2015'
 results_dir=r"F:\Nextcloud\science\results\topology_and_graphs\PDBBind"
