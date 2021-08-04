@@ -688,7 +688,7 @@ def run_repeated_keras_NN_tests(
     test_scores_rmse=[]
 
     for trial in range(num_of_repeats):
-        (train_X_data,
+        (train_X_data, ###
          train_y_data,
          test_X_data,
          test_y_data,
