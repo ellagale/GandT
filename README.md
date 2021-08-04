@@ -1,5 +1,10 @@
 # graphs_and_topology_for_chemistry
 
+# Test Files
+
+Run the files in the test_dataset folder first to check that everything works before trying to build the hdf5
+
+
 Hacking together an idea to use topology methods to create features for NNs working on chemicals 
 
 
