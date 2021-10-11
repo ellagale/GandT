@@ -730,3 +730,77 @@ def run_repeated_keras_NN_tests(
     return out
 
         # make a model for use
+
+def create_and_merge_dc_topol_features(my_dataset,
+                                       num_of_molecules=5,
+                                       num_of_features=18,
+                                       data_dir='',
+                                       save_dir='',
+                                       do_specified_range=False,
+                                       selected_range=[],
+                                       verbose=False):
+    """merges topological features for deep chem loaded datasets into the same dataset
+    i.e. each row has x protein features and y ligand features"""
+    # grab ligands
+    print('Doing the molecules...')
+
+    topol_feat_list, topol_feat_mat = make_topological_features_from_deepchem(my_dataset,
+                                                                                file_type='dc',
+                                                                                verbose=False,
+                                                                                num_of_molecules=num_of_molecules,
+                                                                                num_of_features=num_of_features,
+                                                                                data_dir=data_dir,
+                                                                                do_specified_range=do_specified_range,
+                                                                                selected_range=selected_range)
+
+    # numpy version of data
+    np.savetxt(os.path.join(save_dir,"test.txt"), topol_feat_mat)
+    if verbose:
+        print(topol_feat_mat)
+        print(topol_feat_list)
+    return (topol_feat_list, topol_feat_mat)
+
+def temp_write_topol_data(
+        f,
+        remaining,
+        current_ptr,
+        my_dataset,
+        num_of_topol_features,
+        do_specified_range,
+        batch_size,
+        data_dir
+):
+    """wrapper function to create_and_merge_dc_topol_features"""
+    while remaining > 0:
+        this_batch = min(batch_size, remaining)
+        this_range = list(range(current_ptr, current_ptr + this_batch))
+
+        out_list, y_new = create_and_merge_dc_topol_features(my_dataset,
+                                                             num_of_molecules=5, # overwritten by do_specified_Range
+                                                             num_of_features=num_of_topol_features,
+                                                             data_dir=data_dir,
+                                                             do_specified_range=do_specified_range,
+                                                             selected_range=this_range,
+                                                             verbose=False)
+
+        for _list in out_list:
+            row = ','.join([str(i) for i in _list])
+            f.write(row + '\n')
+        remaining -= this_batch
+        current_ptr += this_batch
+    return
+
+def copy_targets_into_csv(
+        y_fh,
+        my_dataset
+):
+    """writes targets from dataset to file handle for csv file output"""
+    for target_list in my_dataset:
+        if len(target_list) == 1:
+            # single target
+            row = str(target_list[0])
+        else:  # multidimensional target
+            for _list in target_list:
+                row = ','.join([str(i) for i in _list])
+        y_fh.write(row + '\n')
+    return
