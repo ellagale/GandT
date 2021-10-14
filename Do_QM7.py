@@ -63,7 +63,7 @@ num_of_molecules_to_do: int = 0 # to go into functions, 0 is an override to do a
 
 current_ptr = 0
 batch_size = 100
-remaining = num_of_molecules
+#remaining = num_of_molecules
 
 #######################################################################################################################
 #                       Calculate the topological features and jot them down                                          #
@@ -74,6 +74,7 @@ if make_dataset:
     with open(os.path.join(save_dir,'x_data_qm7.csv'), 'w') as f:
         with open(os.path.join(save_dir, 'y_data_qm7.csv'), 'w') as y_fh:
             # train
+            remaining = len(train_dataset)
             h.temp_write_topol_data(
                 f,
                 remaining=remaining,
@@ -90,6 +91,7 @@ if make_dataset:
                 my_dataset=untransformed_train_y
             )
             # validate
+            remaining = len(valid_dataset)
             h.temp_write_topol_data(
                 f,
                 remaining=remaining,
@@ -106,6 +108,7 @@ if make_dataset:
                 my_dataset=untransformed_valid_y
             )
             # test
+            remaining = len(test_dataset)
             h.temp_write_topol_data(
                 f,
                 remaining=remaining,
@@ -123,6 +126,7 @@ if make_dataset:
             )
     f.close()
 
+#sys.exit(0)
 ##################################################################################################################
 #                               load data                                                                        #
 ##################################################################################################################

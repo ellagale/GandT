@@ -651,7 +651,7 @@ def run_repeated_RF_tests(
         train_scores.append(model.score(train_X_data, train_y_data))
         test_scores.append(model.score(test_X_data, test_y_data))
 
-    return (train_scores, test_scores)
+    return (train_scores, test_scores, model)
 
 def create_keras_model(size_of_output = 1):
     """Makes a simple NN for testing"""
@@ -726,7 +726,7 @@ def run_repeated_keras_NN_tests(
 
     print(train_scores_r2)
     print(test_scores_r2)
-    out=(train_scores_r2, test_scores_r2, train_scores_rmse, test_scores_rmse)
+    out=(train_scores_r2, test_scores_r2, train_scores_rmse, test_scores_rmse, keras_model)
     return out
 
         # make a model for use
