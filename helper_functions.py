@@ -804,3 +804,18 @@ def copy_targets_into_csv(
                 row = ','.join([str(i) for i in _list])
         y_fh.write(row + '\n')
     return
+
+def load_all_hdf5(fh,
+                  num_of_rows,
+                  column_headers):
+    """If dataset is small enough, load it all into memory
+    fh = file handle
+    num_of_rows = number of rows of data (i.e. molecules)
+    column_headers into the hdf5 file"""
+    data = np.zeros((num_of_rows,len(column_headers)))
+    for key_num in range(len(column_headers)):
+        key = column_headers[key_num]
+        #print(key_num)
+        d=fh[key]
+        data[:,key_num] = d
+    return data

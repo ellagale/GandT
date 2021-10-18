@@ -1,7 +1,7 @@
 ######################################################################################################################
 ##########################   make topological features and put them into a hdf5 file #################################
 ######################################################################################################################
-##########################   QM7    QM7     QM7     QM7     QM7     QM7     QM&     ##################################
+##########################   QM8    QM8     QM8     QM8     QM8     QM8     QM8     ##################################
 ######################################################################################################################
 
 import sys
@@ -28,10 +28,10 @@ print("TensorFlow version: " + tf.__version__)
 #
 save_dir=r'F:\Nextcloud\science\Datasets\topol_datasets'
 data_dir=r'F:\Nextcloud\science\Datasets'
-results_dir=r"F:\Nextcloud\science\results\topology_and_graphs\QM7"
-test_file='qm7.csv'
-out_file_name='qm7_topological_features.hdf5'
-make_dataset=False # whether to recalc the dataset
+results_dir=r"F:\Nextcloud\science\results\topology_and_graphs\QM8"
+test_file='qm8.csv'
+out_file_name='qm8_topological_features.hdf5'
+make_dataset=True # whether to recalc the dataset
 make_hdf5 = True
 
 print(f"DeepChem version: {dc.__version__}")
@@ -47,7 +47,7 @@ num_of_topol_features = len(feature_name_list)
 #### Load data with no featurization
 
 # This loads the data without doing any featurization
-tasks, datasets, transformers = dc.molnet.load_qm7(
+tasks, datasets, transformers = dc.molnet.load_qm8(
     shard_size=2000,
     featurizer=h.My_Dummy_Featurizer(None),
     splitter="index") # not shuffled
@@ -72,8 +72,8 @@ batch_size = 100
 
 #make_dataset = True
 if make_dataset:
-    with open(os.path.join(save_dir,'x_data_qm7.csv'), 'w') as f:
-        with open(os.path.join(save_dir, 'y_data_qm7.csv'), 'w') as y_fh:
+    with open(os.path.join(save_dir,'x_data_qm8.csv'), 'w') as f:
+        with open(os.path.join(save_dir, 'y_data_qm8.csv'), 'w') as y_fh:
             # train
             remaining = len(train_dataset)
             h.temp_write_topol_data(
@@ -131,30 +131,30 @@ if make_dataset:
 ##################################################################################################################
 #                               load data                                                                        #
 ##################################################################################################################
-topl_features_df = pd.read_csv(os.path.join(save_dir,'x_data_qm7.csv'))
-topl_targets_df = pd.read_csv(os.path.join(save_dir,'y_data_qm7.csv'))
+topl_features_df = pd.read_csv(os.path.join(save_dir,'x_data_qm8.csv'))
+topl_targets_df = pd.read_csv(os.path.join(save_dir,'y_data_qm8.csv'))
 
-topl_QM7_all_mat=topl_features_df
+topl_QM8_all_mat=topl_features_df
 
-qm7_df=pd.read_csv(os.path.join(save_dir,'qm7_SMILES.csv')) # has smiles strings
+qm8_df=pd.read_csv(os.path.join(save_dir,'qm8_SMILES.csv')) # has smiles strings
 
-with open(os.path.join(save_dir,'x_data_qm7.csv'), 'r') as read_obj:
+with open(os.path.join(save_dir,'x_data_qm8.csv'), 'r') as read_obj:
     # pass the file object to reader() to get the reader object
     csv_reader = reader(read_obj)
     # Pass reader object to list() to get a list of lists
-    topl_QM7_all_list = list(csv_reader)
-    print(topl_QM7_all_list)
+    topl_QM8_all_list = list(csv_reader)
+    print(topl_QM8_all_list)
 
-topl_QM7_all_list = np.array(topl_QM7_all_list)
+topl_QM8_all_list = np.array(topl_QM8_all_list)
 
-with open(os.path.join(save_dir,'y_data_qm7.csv'), 'r') as read_obj:
+with open(os.path.join(save_dir,'y_data_qm8.csv'), 'r') as read_obj:
     # pass the file object to reader() to get the reader object
     csv_reader = reader(read_obj)
     # Pass reader object to list() to get a list of lists
-    targets_topl_QM7_all_list = list(csv_reader)
-    #print(targets_topl_QM7_all_list)
+    targets_topl_QM8_all_list = list(csv_reader)
+    #print(targets_topl_QM8_all_list)
 
-with open(os.path.join(save_dir,'qm7_SMILES.csv'), 'r') as read_obj:
+with open(os.path.join(save_dir,'qm8_SMILES.csv'), 'r') as read_obj:
     # pass the file object to reader() to get the reader object
     csv_reader = reader(read_obj)
     # Pass reader object to list() to get a list of lists
@@ -163,7 +163,7 @@ with open(os.path.join(save_dir,'qm7_SMILES.csv'), 'r') as read_obj:
 ################# now do the PCA ###################################################################################
 #pca = PCA(n_components=num_of_topol_features)
 pca = PCA(n_components=num_of_topol_features)
-principalComponents_large = pca.fit_transform(topl_QM7_all_list)
+principalComponents_large = pca.fit_transform(topl_QM8_all_list)
 ####################################################################################################################
 #SMILES_list = qm7_df['smiles']
 
@@ -262,7 +262,7 @@ if make_hdf5:
             P_wasser_1_ds[mol_idx],P_wasser_2_ds[mol_idx], P_wasser_3_ds[mol_idx],
             P_landsc_1_ds[mol_idx], P_landsc_2_ds[mol_idx],P_landsc_3_ds[mol_idx],
             P_pers_img_1_ds[mol_idx],P_pers_img_2_ds[mol_idx],P_pers_img_3_ds[mol_idx]
-             ) = np.array(topl_QM7_all_list[mol_idx], dtype='f8')
+             ) = np.array(topl_QM8_all_list[mol_idx], dtype='f8')
                 #                           PCs                         #
             (PCA_1_ds[mol_idx], PCA_2_ds[mol_idx], PCA_3_ds[mol_idx], PCA_4_ds[mol_idx], PCA_5_ds[mol_idx],
             PCA_6_ds[mol_idx], PCA_7_ds[mol_idx], PCA_8_ds[mol_idx], PCA_9_ds[mol_idx], PCA_10_ds[mol_idx],
@@ -271,8 +271,8 @@ if make_hdf5:
 
             # targets
 
-            target_ds[mol_idx] = np.array(targets_topl_QM7_all_list[mol_idx], dtype='f8')
-            target_norm_ds[mol_idx] = np.array(targets_topl_QM7_all_list[mol_idx], dtype='f8')
+            target_ds[mol_idx] = np.array(targets_topl_QM8_all_list[mol_idx], dtype='f8')
+            target_norm_ds[mol_idx] = np.array(targets_topl_QM8_all_list[mol_idx], dtype='f8')
 
     outfile.close()
 
