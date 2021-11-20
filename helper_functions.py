@@ -800,8 +800,7 @@ def copy_targets_into_csv(
             # single target
             row = str(target_list[0])
         else:  # multidimensional target
-            for _list in target_list:
-                row = ','.join([str(i) for i in _list])
+            row = ','.join([str(i) for i in target_list])
         y_fh.write(row + '\n')
     return
 

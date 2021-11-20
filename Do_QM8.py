@@ -18,6 +18,7 @@ import h5py
 import helper_functions as h
 
 from csv import reader
+import csv
 import numpy as np
 import pandas as pd
 from sklearn.decomposition import PCA
@@ -31,7 +32,8 @@ data_dir=r'F:\Nextcloud\science\Datasets'
 results_dir=r"F:\Nextcloud\science\results\topology_and_graphs\QM8"
 test_file='qm8.csv'
 out_file_name='qm8_topological_features.hdf5'
-make_dataset=True # whether to recalc the dataset
+smiles_file = 'qm8_SMILES.csv'
+make_dataset=False # whether to recalc the dataset
 make_hdf5 = True
 
 print(f"DeepChem version: {dc.__version__}")
@@ -54,6 +56,7 @@ tasks, datasets, transformers = dc.molnet.load_qm8(
 
 train_dataset, valid_dataset, test_dataset = datasets
 num_of_molecules: int = len(train_dataset) + len(valid_dataset) + len(test_dataset)
+print(f"Found {num_of_molecules} molecules")
 
 # RUN THIS
 #make_dataset = False
@@ -65,12 +68,47 @@ num_of_molecules_to_do: int = 0 # to go into functions, 0 is an override to do a
 current_ptr = 0
 batch_size = 100
 #remaining = num_of_molecules
+## make smiles strings! and do unnormed
+
+
+## we have to do this as the sdf file is missing 4 datapoints, so we need all the data
+## to be taken directly from the deepchem dataset
+
+# open the file in the write mode
+f = open(os.path.join(save_dir, smiles_file), 'w', newline='')
+
+# create the csv writer
+writer = csv.writer(f)
+print('Writing SMILES strings out')
+dataset = train_dataset
+for molecule_num in range(len(dataset)):
+    row = [dataset.ids[molecule_num]]
+    # print(row)
+    # write a row to the csv file
+    writer.writerow(row)
+
+dataset = valid_dataset
+for molecule_num in range(len(dataset)):
+    row = [dataset.ids[molecule_num]]
+    # print(row)
+    # write a row to the csv file
+    writer.writerow(row)
+
+dataset = test_dataset
+for molecule_num in range(len(dataset)):
+    row = [dataset.ids[molecule_num]]
+    # print(row)
+    # write a row to the csv file
+    writer.writerow(row)
+
+    # close the file
+f.close()
 
 #######################################################################################################################
 #                       Calculate the topological features and jot them down                                          #
 #######################################################################################################################
 
-#make_dataset = True
+#make_dataset = False
 if make_dataset:
     with open(os.path.join(save_dir,'x_data_qm8.csv'), 'w') as f:
         with open(os.path.join(save_dir, 'y_data_qm8.csv'), 'w') as y_fh:
@@ -152,7 +190,8 @@ with open(os.path.join(save_dir,'y_data_qm8.csv'), 'r') as read_obj:
     csv_reader = reader(read_obj)
     # Pass reader object to list() to get a list of lists
     targets_topl_QM8_all_list = list(csv_reader)
-    #print(targets_topl_QM8_all_list)
+    print('Example y data')
+    print(targets_topl_QM8_all_list[0])
 
 with open(os.path.join(save_dir,'qm8_SMILES.csv'), 'r') as read_obj:
     # pass the file object to reader() to get the reader object
@@ -236,8 +275,23 @@ if make_hdf5:
         PCA_17_ds = h.create_or_recreate_dataset(outfile, "PCA_17", (num_of_molecules_to_do,), dtype=np.float32)
         PCA_18_ds = h.create_or_recreate_dataset(outfile, "PCA_18", (num_of_molecules_to_do,), dtype=np.float32)
             # # #                           targets                                         # # #
-        target_ds = h.create_or_recreate_dataset(outfile, "u0_atom", (num_of_molecules_to_do,), dtype=np.float32)
-        target_norm_ds = h.create_or_recreate_dataset(outfile, "u0_atom_norm", (num_of_molecules_to_do,), dtype=np.float32)
+        target_E1_CC2_ds = h.create_or_recreate_dataset(outfile, "E1-CC2", (num_of_molecules_to_do,), dtype=np.float32)
+        target_E2_CC2_ds = h.create_or_recreate_dataset(outfile, "E2-CC2", (num_of_molecules_to_do,), dtype=np.float32)
+        target_f1_CC2_ds = h.create_or_recreate_dataset(outfile, "f1-CC2", (num_of_molecules_to_do,), dtype=np.float32)
+        target_f2_CC2_ds = h.create_or_recreate_dataset(outfile, "f2-CC2", (num_of_molecules_to_do,), dtype=np.float32)
+        target_E1_PBE0_ds = h.create_or_recreate_dataset(outfile, "E1-PBE0", (num_of_molecules_to_do,), dtype=np.float32)
+        target_E2_PBE0_ds = h.create_or_recreate_dataset(outfile, "E2-PBE0", (num_of_molecules_to_do,), dtype=np.float32)
+        target_f1_PBE0_ds = h.create_or_recreate_dataset(outfile, "f1-PBE0", (num_of_molecules_to_do,), dtype=np.float32)
+        target_f2_PBE0_ds = h.create_or_recreate_dataset(outfile, "f2-PBE0", (num_of_molecules_to_do,), dtype=np.float32)
+        target_E1_PBE0_2_ds = h.create_or_recreate_dataset(outfile, "E1-PBE0_2", (num_of_molecules_to_do,), dtype=np.float32)
+        target_E2_PBE0_2_ds = h.create_or_recreate_dataset(outfile, "E2-PBE0_2", (num_of_molecules_to_do,), dtype=np.float32)
+        target_f1_PBE0_2_ds = h.create_or_recreate_dataset(outfile, "f1-PBE0_2", (num_of_molecules_to_do,), dtype=np.float32)
+        target_f2_PBE0_2_ds = h.create_or_recreate_dataset(outfile, "f2-PBE0_2", (num_of_molecules_to_do,), dtype=np.float32)
+        target_E1_CAM_ds = h.create_or_recreate_dataset(outfile, "E1-CAM", (num_of_molecules_to_do,), dtype=np.float32)
+        target_E2_CAM_ds = h.create_or_recreate_dataset(outfile, "E2-CAM", (num_of_molecules_to_do,), dtype=np.float32)
+        target_f1_CAM_ds = h.create_or_recreate_dataset(outfile, "f1-CAM", (num_of_molecules_to_do,), dtype=np.float32)
+        target_f2_CAM_ds = h.create_or_recreate_dataset(outfile, "f2-CAM", (num_of_molecules_to_do,), dtype=np.float32)
+
 
         for mol_idx in range(num_of_molecules_to_do):
             if mol_idx % 50 == 0:
@@ -270,9 +324,24 @@ if make_hdf5:
             PCA_16_ds[mol_idx], PCA_17_ds[mol_idx], PCA_18_ds[mol_idx])=principalComponents_large[mol_idx]
 
             # targets
+            # # #                           targets                                         # # #
+            target_E1_CC2_ds[mol_idx] = np.array(targets_topl_QM8_all_list[mol_idx][0], dtype='f8')
+            target_E2_CC2_ds[mol_idx] = np.array(targets_topl_QM8_all_list[mol_idx][1], dtype='f8')
+            target_f1_CC2_ds[mol_idx] = np.array(targets_topl_QM8_all_list[mol_idx][2], dtype='f8')
+            target_f2_CC2_ds[mol_idx] = np.array(targets_topl_QM8_all_list[mol_idx][3], dtype='f8')
+            target_E1_PBE0_ds[mol_idx] = np.array(targets_topl_QM8_all_list[mol_idx][4], dtype='f8')
+            target_E2_PBE0_ds[mol_idx] = np.array(targets_topl_QM8_all_list[mol_idx][5], dtype='f8')
+            target_f1_PBE0_ds[mol_idx] = np.array(targets_topl_QM8_all_list[mol_idx][6], dtype='f8')
+            target_f2_PBE0_ds[mol_idx] = np.array(targets_topl_QM8_all_list[mol_idx][7], dtype='f8')
+            target_E1_PBE0_2_ds[mol_idx] = np.array(targets_topl_QM8_all_list[mol_idx][8], dtype='f8')
+            target_E2_PBE0_2_ds[mol_idx] = np.array(targets_topl_QM8_all_list[mol_idx][9], dtype='f8')
+            target_f1_PBE0_2_ds[mol_idx] = np.array(targets_topl_QM8_all_list[mol_idx][10], dtype='f8')
+            target_f2_PBE0_2_ds[mol_idx] = np.array(targets_topl_QM8_all_list[mol_idx][11], dtype='f8')
+            target_E1_CAM_ds[mol_idx] = np.array(targets_topl_QM8_all_list[mol_idx][12], dtype='f8')
+            target_E2_CAM_ds[mol_idx] = np.array(targets_topl_QM8_all_list[mol_idx][13], dtype='f8')
+            target_f1_CAM_ds[mol_idx] = np.array(targets_topl_QM8_all_list[mol_idx][14], dtype='f8')
+            target_f2_CAM_ds[mol_idx] = np.array(targets_topl_QM8_all_list[mol_idx][15], dtype='f8')
 
-            target_ds[mol_idx] = np.array(targets_topl_QM8_all_list[mol_idx], dtype='f8')
-            target_norm_ds[mol_idx] = np.array(targets_topl_QM8_all_list[mol_idx], dtype='f8')
 
     outfile.close()
 
