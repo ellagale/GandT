@@ -10,6 +10,10 @@ sys.path.append(r"C:\Users\ella_\Documents\GitHub\icosahedron_projection")
 
 import deepchem as dc
 
+## fix cos their data was dodgy
+
+dc.molnet.load_function.qm8_datasets.QM8_CSV_URL = "https://gist.githubusercontent.com/ellagale/9e632c9fcf11aaa803ae8a86f9c2a82d/raw/dd862e24858fe68141021c843069ecd0350b5d13/qm8.csv"
+
 import tensorflow as tf
 import os
 import sys
@@ -30,10 +34,10 @@ print("TensorFlow version: " + tf.__version__)
 save_dir=r'F:\Nextcloud\science\Datasets\topol_datasets'
 data_dir=r'F:\Nextcloud\science\Datasets'
 results_dir=r"F:\Nextcloud\science\results\topology_and_graphs\QM8"
-test_file='qm8.csv'
+#test_file='qm8.csv'
 out_file_name='qm8_topological_features.hdf5'
 smiles_file = 'qm8_SMILES.csv'
-make_dataset=False # whether to recalc the dataset
+make_dataset=True # whether to recalc the dataset
 make_hdf5 = True
 
 print(f"DeepChem version: {dc.__version__}")
@@ -63,7 +67,7 @@ print(f"Found {num_of_molecules} molecules")
 do_specified_range = True
 selected_range = [x for x in range(1, 10)]
 #num_of_molecules_to_do = len(selected_range)  ## change this to 0 to do all of them
-num_of_molecules_to_do: int = 0 # to go into functions, 0 is an override to do all
+num_of_molecules_to_do: int = 5#0 # to go into functions, 0 is an override to do all
 
 current_ptr = 0
 batch_size = 100
