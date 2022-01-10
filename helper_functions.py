@@ -2,25 +2,24 @@
 #           Helper functions for graphs and topology in deepchem                       #
 ########################################################################################
 import os
+from collections import Counter
+
+import deepchem as dc
+import h5py
+import numpy as np
 import pandas as pd
 import rdkit
-import numpy as np
-import h5py
-from rdkit.Chem import AllChem
-from sklearn.decomposition import PCA
-from collections import Counter
-# topology stuff
-from gtda.plotting import plot_point_cloud
-from gtda.homology import VietorisRipsPersistence
-from gtda.plotting import plot_diagram
-from gtda.diagrams import PersistenceEntropy
-from gtda.diagrams import NumberOfPoints
+import tensorflow as tf
+from deepchem.feat.base_classes import UserDefinedFeaturizer
 from gtda.diagrams import Amplitude
+from gtda.diagrams import NumberOfPoints
+from gtda.diagrams import PersistenceEntropy
+# topology stuff
+from gtda.homology import VietorisRipsPersistence
+from rdkit.Chem import AllChem
+from scipy.spatial.transform import Rotation as R
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.pipeline import make_union, Pipeline
-from deepchem.feat.base_classes import UserDefinedFeaturizer
-import tensorflow as tf
-import deepchem as dc
 
 num_of_molecules = 100
 
@@ -900,3 +899,17 @@ def do_transform(transformers, dataset):
     for transformer in transformers:
         dataset = transformer.transform(dataset)
     return dataset
+
+def rotation_with_quaternion(Xx, Yy, Zz, coords, verbose=False):
+    """Xx : angle around x axis
+    Yy: angle around y axis
+    Zz: angle around z axis
+    coords: matrix Nx3 of N atoms in 3 dimensions
+    Quaternions are cool"""
+
+    # makes a quaternion
+    r = R.from_euler('zyx',
+    [Zz, Yy, Xx], degrees=True)
+    if verbose:
+        print(f'Quaternion is {r.as_quat()}')
+    return r.apply(coords)
