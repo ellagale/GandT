@@ -6,6 +6,7 @@ import pandas as pd
 import rdkit
 import numpy as np
 import h5py
+from rdkit.Chem import AllChem
 from sklearn.decomposition import PCA
 from collections import Counter
 # topology stuff
@@ -818,3 +819,84 @@ def load_all_hdf5(fh,
         d=fh[key]
         data[:,key_num] = d
     return data
+
+def generate_structure_from_smiles(smiles):
+
+    # Generate a 3D structure from smiles
+
+    mol = rdkit.Chem.MolFromSmiles(smiles)
+    mol = rdkit.AddHs(mol)
+
+    status = rdkit.AllChem.EmbedMolecule(mol)
+    status = rdkit.AllChem.UFFOptimizeMolecule(mol)
+
+    conformer = mol.GetConformer()
+    coordinates = conformer.GetPositions()
+    coordinates = np.array(coordinates)
+
+    #atoms = get_atoms(mol)
+
+    return coordinates
+
+def smiles_to_persistence_diagrams(smiles):
+    coords=generate_structure_from_smiles(smiles)
+    # makes a point cloud version of the structure
+    # there are no atom types
+
+    # Track connected components, loops, and voids
+    homology_dimensions = [0, 1, 2]
+
+    # Collapse edges to speed up H2 persistence calculation!
+    persistence = VietorisRipsPersistence(
+        metric="euclidean",
+        homology_dimensions=homology_dimensions,
+        n_jobs=6,
+        collapse_edges=True,
+    )
+    reshaped_coords=coords[None, :, :]
+    diagrams_basic = persistence.fit_transform(reshaped_coords)
+    return coords, diagrams_basic
+
+def generate_structure_from_pdb(data_dir,
+                               filename):
+
+    # Generate a 3D structure from pdb file
+
+    mol = rdkit.Chem.rdmolfiles.MolFromPDBFile(
+        os.path.join(data_dir, filename))
+    mol = Chem.AddHs(mol)
+
+    status = AllChem.EmbedMolecule(mol)
+    status = AllChem.UFFOptimizeMolecule(mol)
+
+    conformer = mol.GetConformer()
+    coordinates = conformer.GetPositions()
+    coordinates = np.array(coordinates)
+
+    #atoms = get_atoms(mol)
+
+    return coordinates
+
+def coords_to_persistence_diagrams(coords):
+    # makes a point cloud version of the structure
+    # there are no atom types
+
+    # Track connected components, loops, and voids
+    homology_dimensions = [0, 1, 2]
+
+    # Collapse edges to speed up H2 persistence calculation!
+    persistence = VietorisRipsPersistence(
+        metric="euclidean",
+        homology_dimensions=homology_dimensions,
+        n_jobs=6,
+        collapse_edges=True,
+    )
+    reshaped_coords=coords[None, :, :]
+    diagrams_basic = persistence.fit_transform(reshaped_coords)
+    return coords, diagrams_basic
+
+def do_transform(transformers, dataset):
+    # does deepchem transforms properly on np datasets
+    for transformer in transformers:
+        dataset = transformer.transform(dataset)
+    return dataset
