@@ -13,7 +13,7 @@ class Molecule(object):
     """
 
     # Load the standard colours and convert into the right format for matplotlib.
-    _colour_frame = pd.read_csv(os.path.join("JMolColors-master", "JMolColors-master", "jmolcolors.csv"))
+    _colour_frame = pd.read_csv("jmolcolors.csv")
     _colour_list = {}
     for _, a in _colour_frame.iterrows():
         _colour_list[a['atom']] = (a['R'] / 255.0, a['G'] / 255.0, a['B'] / 255.0)
