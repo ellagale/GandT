@@ -17,11 +17,16 @@ from gtda.diagrams import PersistenceEntropy
 # topology stuff
 from gtda.homology import VietorisRipsPersistence
 from rdkit.Chem import AllChem
+from rdkit import Chem
 from scipy.spatial.transform import Rotation as R
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.pipeline import make_union, Pipeline
 
+import matplotlib as plt
+
 num_of_molecules = 100
+
+results_dir=os.getcwd()
 
 
 def coord_getter(data_dir, test_file, test_pdb_code, setting='pdb'):
@@ -36,6 +41,19 @@ def coord_getter(data_dir, test_file, test_pdb_code, setting='pdb'):
             test_file_location,
             cleanupSubstructures=False,
             sanitize=False)
+    egg = mol_orig.GetConformer()
+    rdkit.Chem.rdMolTransforms.CanonicalizeConformer(egg)
+    coords = egg.GetPositions()
+    return mol_orig, coords
+
+def coord_creator(smiles):
+    """Calculates coords form smiles strings"""
+    #test_file_location = os.path.join(data_dir, test_pdb_code, test_file)
+    mol_orig = Chem.MolFromSmiles(smiles)
+    mol_orig = Chem.AddHs(mol_orig)
+
+    status = AllChem.EmbedMolecule(mol_orig)
+    status = AllChem.UFFOptimizeMolecule(mol_orig)
     egg = mol_orig.GetConformer()
     rdkit.Chem.rdMolTransforms.CanonicalizeConformer(egg)
     coords = egg.GetPositions()
@@ -171,7 +189,7 @@ def read_in_PDBBind_data(
 
 
 def make_topological_features_for_PDBBind(df_cluster_core,
-                                          PDB_or_mol2='mol2',
+                                          structure_file_format='mol2',
                                           verbose=False,
                                           Num_of_proteins=0,
                                           Num_of_features=3,
@@ -180,7 +198,7 @@ def make_topological_features_for_PDBBind(df_cluster_core,
                                           selected_range=[]):
     """makes topological features from pdb and mol2 files in PDBBind
     df_cluster_core = dataframe of the cluster dataset
-    PDB_or_mol2='mol2': pdb fro proteins, mol2 for ligands
+    structure_file_format='mol2': pdb fro proteins, mol2 for ligands
     Num_of_proteins=0 nume of proteins to do, 0 is all
     Num_of_features: 3 for persistence entropy only, 9 for everything
     do_specified_range: whether you will give the actual range
@@ -198,11 +216,11 @@ def make_topological_features_for_PDBBind(df_cluster_core,
             Num_of_proteins = len(selected_range)
 
     point_ptr = -1
-    # PDB_or_mol2='pdb'
+    # structure_file_format='pdb'
     pdb_list = df_cluster_core['PDB_code']
-    if PDB_or_mol2 == 'mol2':
+    if structure_file_format == 'mol2':
         input_file_end_name = 'ligand'
-    elif PDB_or_mol2 == 'pdb':
+    elif structure_file_format == 'pdb':
         input_file_end_name = 'pocket'
 
     topol_feat_list = []
@@ -242,11 +260,13 @@ def make_topological_features_for_PDBBind(df_cluster_core,
         ### load da data
         file_location = os.path.join(data_dir,
                                      pdb_list[mol_idx],
-                                     pdb_list[mol_idx] + '_' + input_file_end_name + '.' + PDB_or_mol2)
-        if PDB_or_mol2 == 'mol2':
+                                     pdb_list[mol_idx] + '_' + input_file_end_name + '.' + structure_file_format)
+        if structure_file_format == 'mol2':
             mol, coords = coord_getter_2(file_location, setting='mol2')
-        elif PDB_or_mol2 == 'pdb':
+        elif structure_file_format == 'pdb':
             mol, coords = coord_getter_2(file_location, setting='pdb')
+        elif structure_file_format == 'smiles': # no file to read!
+            mol, coords = coord_creator(smiles)
 
         # Track connected components, loops, and voids
         homology_dimensions = [0, 1, 2]
@@ -285,7 +305,7 @@ def create_and_merge_PDBBind_topol_features(df_cluster_core,
     # grab ligands
     print('Doing the proteins...')
     topol_feat_list_protein, topol_feat_mat_protein = make_topological_features_for_PDBBind(df_cluster_core,
-                                                                                            PDB_or_mol2='pdb',
+                                                                                            structure_file_format='pdb',
                                                                                             verbose=verbose,
                                                                                             Num_of_proteins=Num_of_proteins,
                                                                                             Num_of_features=Num_of_features,
@@ -296,7 +316,7 @@ def create_and_merge_PDBBind_topol_features(df_cluster_core,
     # do proteins
     print('Doing the ligands')
     topol_feat_list_ligand, topol_feat_mat_ligand = make_topological_features_for_PDBBind(df_cluster_core,
-                                                                                          PDB_or_mol2='mol2',
+                                                                                          structure_file_format='mol2',
                                                                                           verbose=verbose,
                                                                                           Num_of_proteins=Num_of_proteins,
                                                                                           Num_of_features=Num_of_features,
@@ -544,10 +564,11 @@ def make_topological_features_from_deepchem(my_dataset,
                                             do_specified_range=False,
                                             selected_range=[],
                                             pdb_list=[],
-                                            input_file_end_name=''):
+                                            input_file_end_name='',
+                                            skip_molecules=[]):
     """makes topological features from pdb and mol2 files in PDBBind
     df_cluster_core = dataframe of the cluster dataset
-    PDB_or_mol2='mol2': pdb fro proteins, mol2 for ligands
+    structure_file_format='mol2': pdb fro proteins, mol2 for ligands
     Num_of_proteins=0 nume of proteins to do, 0 is all
     Num_of_features: 3 for persistence entropy only, 9 for everything
     do_specified_range: whether you will give the actual range
@@ -566,7 +587,7 @@ def make_topological_features_from_deepchem(my_dataset,
         num_of_molecules = len(selected_range)
 
     point_ptr = -1
-    # PDB_or_mol2='pdb'
+    # structure_file_format='pdb'
 
     topol_feat_list = []
 
@@ -577,42 +598,46 @@ def make_topological_features_from_deepchem(my_dataset,
     ############# DAS LOOP! Makes topological features ##########
 
     for mol_idx in selected_range:
-        print('Got to Molecule no. ', mol_idx)
-        ### load da data from dataset is rdkit mol object already
-        mol = my_dataset.X[mol_idx]
-        if file_type == 'dc':
-            _, coords = coord_getter_from_deepchem(mol)
-        else:
-            # data is in files somewhere we make the rdkit mol object
-            file_location = os.path.join(data_dir,
-                                         pdb_list[mol_idx],
-                                         pdb_list[mol_idx] + '_' + input_file_end_name + '.' + file_type)
-            if file_type == 'mol2':
-                mol, coords = coord_getter_2(file_location, setting='mol2')
-            elif file_type == 'pdb':
-                mol, coords = coord_getter_2(file_location, setting='pdb')
+        if not mol_idx in skip_molecules:
+            print('Got to Molecule no. ', mol_idx)
+            ### load da data from dataset is rdkit mol object already
+            mol = my_dataset.X[mol_idx]
+            if file_type == 'dc':
+                _, coords = coord_getter_from_deepchem(mol)
+            else:
+                # data is in files somewhere we make the rdkit mol object
+                if not file_type == 'smiles':
+                    file_location = os.path.join(data_dir,
+                                             pdb_list[mol_idx],
+                                             pdb_list[mol_idx] + '_' + input_file_end_name + '.' + file_type)
+                if file_type == 'mol2':
+                    mol, coords = coord_getter_2(file_location, setting='mol2')
+                elif file_type == 'pdb':
+                    mol, coords = coord_getter_2(file_location, setting='pdb')
+                elif file_type == 'smiles':
+                    mol, coords = coord_creator(mol)
 
-        # Track connected components, loops, and voids
-        homology_dimensions = [0, 1, 2]
-        # Collapse edges to speed up H2 persistence calculation!
-        persistence = VietorisRipsPersistence(
-            metric="euclidean",
-            homology_dimensions=homology_dimensions,
-            n_jobs=6,
-            collapse_edges=True,
-        )
-        reshaped_coords = coords[None, :, :]
-        diagrams_basic = persistence.fit_transform(reshaped_coords)
-        # persistence_entropy = PersistenceEntropy()
-        # if num_of_features == 3:
-        X_basic = pipe.fit_transform(diagrams_basic)
-        # elif Num_of_features == 18:
-        # X_basic = pipe.fit_transform(diagrams_basic)
-        topol_feat_list.append([x for x in X_basic[0]])
-        if verbose:
-            print(X_basic)
+            # Track connected components, loops, and voids
+            homology_dimensions = [0, 1, 2]
+            # Collapse edges to speed up H2 persistence calculation!
+            persistence = VietorisRipsPersistence(
+                metric="euclidean",
+                homology_dimensions=homology_dimensions,
+                n_jobs=6,
+                collapse_edges=True,
+            )
+            reshaped_coords = coords[None, :, :]
+            diagrams_basic = persistence.fit_transform(reshaped_coords)
+            # persistence_entropy = PersistenceEntropy()
+            # if num_of_features == 3:
+            X_basic = pipe.fit_transform(diagrams_basic)
+            # elif Num_of_features == 18:
+            # X_basic = pipe.fit_transform(diagrams_basic)
+            topol_feat_list.append([x for x in X_basic[0]])
+            if verbose:
+                print(X_basic)
 
-    topol_feat_mat = np.array(topol_feat_list)
+        topol_feat_mat = np.array(topol_feat_list)
 
     return topol_feat_list, topol_feat_mat
 
@@ -738,20 +763,23 @@ def create_and_merge_dc_topol_features(my_dataset,
                                        save_dir='',
                                        do_specified_range=False,
                                        selected_range=[],
-                                       verbose=False):
+                                       file_type='dc',
+                                       verbose=False,
+                                       skip_molecules=[]):
     """merges topological features for deep chem loaded datasets into the same dataset
     i.e. each row has x protein features and y ligand features"""
     # grab ligands
     print('Doing the molecules...')
 
     topol_feat_list, topol_feat_mat = make_topological_features_from_deepchem(my_dataset,
-                                                                                file_type='dc',
+                                                                                file_type=file_type,
                                                                                 verbose=False,
                                                                                 num_of_molecules=num_of_molecules,
                                                                                 num_of_features=num_of_features,
                                                                                 data_dir=data_dir,
                                                                                 do_specified_range=do_specified_range,
-                                                                                selected_range=selected_range)
+                                                                                selected_range=selected_range,
+                                                                                skip_molecules=skip_molecules)
 
     # numpy version of data
     np.savetxt(os.path.join(save_dir,"test.txt"), topol_feat_mat)
@@ -768,7 +796,9 @@ def temp_write_topol_data(
         num_of_topol_features,
         do_specified_range,
         batch_size,
-        data_dir
+        data_dir,
+        file_type='dc',
+        skip_molecules=[]
 ):
     """wrapper function to create_and_merge_dc_topol_features"""
     while remaining > 0:
@@ -781,7 +811,9 @@ def temp_write_topol_data(
                                                              data_dir=data_dir,
                                                              do_specified_range=do_specified_range,
                                                              selected_range=this_range,
-                                                             verbose=False)
+                                                             file_type=file_type,
+                                                             verbose=False,
+                                                             skip_molecules=skip_molecules)
 
         for _list in out_list:
             row = ','.join([str(i) for i in _list])
@@ -913,3 +945,795 @@ def rotation_with_quaternion(Xx, Yy, Zz, coords, verbose=False):
     if verbose:
         print(f'Quaternion is {r.as_quat()}')
     return r.apply(coords)
+
+def deepchem_dataset_dictionaries():
+    """returns useful intel about deepchem in this order:
+    loaders = loader functions (dictionary)
+    classification datasets is a list of classification datasets
+    regression datasets is regression datasets
+    metric types is the metric used per dataset"""
+
+    loaders = {
+          'bace_c': dc.molnet.load_bace_classification,
+          'bace_r': dc.molnet.load_bace_regression,
+          'bbbp': dc.molnet.load_bbbp,
+          'clearance': dc.molnet.load_clearance,
+          'clintox': dc.molnet.load_clintox,
+          'delaney': dc.molnet.load_delaney,
+          'hiv': dc.molnet.load_hiv,
+          'hopv': dc.molnet.load_hopv,
+          'kaggle': dc.molnet.load_kaggle,
+          'kinase': dc.molnet.load_kinase,
+          'lipo': dc.molnet.load_lipo,
+          'muv': dc.molnet.load_muv,
+          'nci': dc.molnet.load_nci,
+          'pcba': dc.molnet.load_pcba,
+     #     'pcba_146': dc.molnet.load_pcba_146,
+     #     'pcba_2475': dc.molnet.load_pcba_2475,
+          'ppb': dc.molnet.load_ppb,
+          'qm7': dc.molnet.load_qm7,
+    #      'qm7b': dc.molnet.load_qm7b_from_mat,
+          'qm8': dc.molnet.load_qm8,
+          'qm9': dc.molnet.load_qm9,
+          'sampl': dc.molnet.load_sampl,
+          'sider': dc.molnet.load_sider,
+          'thermosol': dc.molnet.load_thermosol,
+          'tox21': dc.molnet.load_tox21,
+          'toxcast': dc.molnet.load_toxcast
+  }
+
+    classification_datasets = ['bace_c', 'bbbp', 'clintox', 'hiv', 'muv', 'pcba', 'pcba_146', 'pcba_2475', 'sider', 'tox21', 'toxcast']
+    regression_datasets = ['bace_r', 'clearance', 'delaney', 'hopv', 'kaggle', 'lipo', 'nci', 'ppb', 'qm7', 'qm7b', 'qm8', 'qm9', 'sampl', 'thermosol']
+
+    metric_types = {'bace_c': dc.metrics.roc_auc_score,
+          'bace_r': dc.metrics.rms_score,
+          'bbbp': dc.metrics.roc_auc_score,
+          'clearance': dc.metrics.rms_score,
+          'clintox': dc.metrics.roc_auc_score,
+          'delaney': dc.metrics.mae_score,
+          'hiv': dc.metrics.roc_auc_score,
+          'hopv': dc.metrics.mae_score,
+          'kaggle': dc.metrics.mae_score,
+          'lipo': dc.metrics.mae_score,
+          'muv': dc.metrics.roc_auc_score,
+          'nci': dc.metrics.mae_score,
+          'pcba': dc.metrics.prc_auc_score,
+          'pcba_146': dc.metrics.prc_auc_score,
+          'pcba_2475': dc.metrics.prc_auc_score,
+          'ppb': dc.metrics.mae_score,
+          'qm7': dc.metrics.mae_score,
+          'qm7b': dc.metrics.mae_score,
+          'qm8': dc.metrics.mae_score,
+          'qm9': dc.metrics.mae_score,
+          'sampl': dc.metrics.rms_score,
+          'sider': dc.metrics.roc_auc_score,
+          'thermosol': dc.metrics.rms_score,
+          'tox21': dc.metrics.roc_auc_score,
+          'toxcast': dc.metrics.roc_auc_score}
+    return loaders, classification_datasets, regression_datasets, metric_types
+
+
+def load_all_hdf5(fh,
+                  num_of_rows,
+                  column_headers):
+    """If dataset is small enough, load it all into memory
+    fh = file handle
+    num_of_rows = number of rows of data (i.e. molecules)
+    column_headers into the hdf5 file"""
+    data = np.zeros((num_of_rows, len(column_headers)))
+    for key_num in range(len(column_headers)):
+        key = column_headers[key_num]
+        # print(key_num)
+        d = fh[key]
+        data[:, key_num] = d
+    return data
+
+
+def do_transform(transformers, dataset):
+    for transformer in transformers:
+        dataset = transformer.transform(dataset)
+    return dataset
+
+def get_them_metrics(
+        model,
+        datasets,
+        metrics,
+        metric_labels,
+        transformers=[],
+):
+    """calculates metrics for a run
+    model: trained model
+    # datasets: tuple of datasets
+    # metrics: list of metric objects
+    # metric labels: sensible labels"""
+    ugh = []
+    for dataset in datasets:
+        if transformers == []:
+            egg = model.evaluate(
+                dataset,
+                metrics)
+        else:
+            egg = model.evaluate(
+                dataset,
+                metrics,
+                transformers=transformers)
+        for metric_label in metric_labels:
+            if metric_label == 'rmse':
+                ugh.append(np.sqrt(egg['mean_squared_error']))
+            else:
+                ugh.append(egg[metric_label])
+    return ugh
+
+
+def topol_regression_experiment(
+        dataset,
+        transformers,
+        Splitter_Object,
+        tasks,
+        metrics,
+        metric_selector,
+        num_repeats=5,
+        num_epochs=250,
+        split_fraction=[0.8, 0.1, 0.1],
+        patience=15,
+        metric_labels=['mean_squared_error',
+                       'pearson_r2_score',
+                       'mae_score',
+                       'rmse']):
+    """runs repeated training with topol input features
+    uses default multitask regressor class
+    does splitting and transforming
+    returns metrics
+
+    dataset: overall original dataset, before splitting
+    transformers: deepchem transformer
+    Splitter_object: deepchem splitter
+    num_epochs: num epochs if not early stopping
+    metric_selector: whihc one to train wiht
+    split fraction: train, val, test split as decimal
+    patience: for early stopping
+    metric_labels: add rmse here if you want it, do not add to metrics
+    metrics: list of metrics"""
+
+    ## in function
+
+    out = []
+
+    frac_train = split_fraction[0]
+    frac_valid = split_fraction[1]
+    frac_test = split_fraction[2]
+    train_scores, validate_scores, test_scores = [], [], []
+    print(f'Metric selected is {metric_labels[metric_selector]}')
+    for i in range(num_repeats):
+        # make datasets
+        train_dataset, valid_dataset, test_dataset = Splitter_Object.train_valid_test_split(
+            dataset=dataset,
+            frac_train=frac_train,
+            frac_valid=frac_valid,
+            frac_test=frac_test)
+        print(f"Training with {len(train_dataset.y)} points")
+        print(f"Validation with {len(valid_dataset.y)} points")
+        print(f"Testing with {len(test_dataset.y)} points")
+        print(f"Total dataset size: {len(train_dataset.y) + len(valid_dataset.y) + len(test_dataset.y)}")
+
+        # transforms datasets wooo
+        train_dataset = do_transform(transformers, train_dataset)
+        valid_dataset = do_transform(transformers, valid_dataset)
+        test_dataset = do_transform(transformers, test_dataset)
+        # for later
+        datasets = [train_dataset, valid_dataset, test_dataset]
+        # actual model here
+        model = dc.models.MultitaskRegressor(
+            n_tasks=len(tasks),
+            n_features=len(train_dataset.X[3]),
+            # layer_sizes=[1000,1000,500,20],
+            # dropouts=0.2,
+            # learning_rate=0.001,
+            residual=True)
+        callback = dc.models.ValidationCallback(
+            valid_dataset,
+            patience,
+            metrics[metric_selector])
+        # fit da model
+        model.fit(train_dataset, nb_epoch=num_epochs, callbacks=callback)
+
+        # little function to calc metrics on this data
+        out.append(get_them_metrics(
+            model,
+            datasets,
+            metrics,
+            metric_labels,
+            transformers))
+
+    pd_out = pd.DataFrame(out, columns=['tr_mse', 'tr_r2', 'tr_mae', 'tr_rmse',
+                                        'val_mse', 'val_r2', 'val_mae', 'val_rmse',
+                                        'te_mse', 'te_r2', 'te_mae', 'te_rmse'])
+    return pd_out
+
+
+def no_transform_topol_regression_experiment(
+        dataset,
+        Splitter_Object,
+        tasks,
+        metrics,
+        metric_selector,
+        num_repeats=5,
+        num_epochs=250,
+        split_fraction=[0.8, 0.1, 0.1],
+        patience=15,
+        metric_labels=['mean_squared_error',
+                       'pearson_r2_score',
+                       'mae_score',
+                       'rmse']):
+    """runs repeated training with topol input features
+    uses default multitask regressor class
+    does splitting and transforming
+    returns metrics
+
+    dataset: overall original dataset, before splitting
+    transformers: deepchem transformer
+    Splitter_object: deepchem splitter
+    num_epochs: num epochs if not early stopping
+    metric_selector: whihc one to train wiht
+    split fraction: train, val, test split as decimal
+    patience: for early stopping
+    metric_labels: add rmse here if you want it, do not add to metrics
+    metrics: list of metrics"""
+
+    ## in function
+
+    out = []
+
+    frac_train = split_fraction[0]
+    frac_valid = split_fraction[1]
+    frac_test = split_fraction[2]
+    train_scores, validate_scores, test_scores = [], [], []
+    print(f'Metric selected is {metric_labels[metric_selector]}')
+    for i in range(num_repeats):
+        # make datasets
+        train_dataset, valid_dataset, test_dataset = Splitter_Object.train_valid_test_split(
+            dataset=dataset,
+            frac_train=frac_train,
+            frac_valid=frac_valid,
+            frac_test=frac_test)
+        print(f"Training with {len(train_dataset.y)} points")
+        print(f"Validation with {len(valid_dataset.y)} points")
+        print(f"Testing with {len(test_dataset.y)} points")
+        print(f"Total dataset size: {len(train_dataset.y) + len(valid_dataset.y) + len(test_dataset.y)}")
+        # transforms datasets wooo
+        # train_dataset=do_transform(transformers, train_dataset)
+        # valid_dataset=do_transform(transformers, valid_dataset)
+        # test_dataset=do_transform(transformers, test_dataset)
+        # for later
+        datasets = [train_dataset, valid_dataset, test_dataset]
+        # actual model here
+        model = dc.models.MultitaskRegressor(
+            n_tasks=len(tasks),
+            n_features=len(train_dataset.X[3]),
+            # layer_sizes=[1000,1000,500,20],
+            # dropouts=0.2,
+            # learning_rate=0.001,
+            residual=True)
+        callback = dc.models.ValidationCallback(
+            valid_dataset,
+            patience,
+            metrics[metric_selector])
+        # fit da model
+        model.fit(train_dataset, nb_epoch=num_epochs, callbacks=callback)
+
+        # little function to calc metrics on this data
+        out.append(get_them_metrics(
+            model,
+            datasets,
+            metrics,
+            metric_labels,
+            transformers=[]))
+
+    pd_out = pd.DataFrame(out, columns=['tr_mse', 'tr_r2', 'tr_mae', 'tr_rmse',
+                                        'val_mse', 'val_r2', 'val_mae', 'val_rmse',
+                                        'te_mse', 'te_r2', 'te_mae', 'te_rmse'])
+    return pd_out
+
+
+def dataset_selector(
+        setting,
+        loader):
+    """makes data inside experiment function
+        setting: ECFP, CM_eig, rdkit, MACCS, 1HOT, CM
+                ConvMol, Weave, Smiles2Img
+        loader: loader function
+    """
+    print('!!!!Make this function new for each new dataset!!!!')
+
+    if setting == 'ECFP':
+        tasks, datasets, transformers = loader(
+            shard_size=2000,
+            featurizer="ECFP",
+            splitter=None)
+    elif setting == 'CM_eig':
+        featurizer_CM_eig = dc.feat.CoulombMatrixEig(max_atoms=23)
+        tasks, datasets, transformers = loader(
+            shard_size=2000,
+            featurizer=featurizer_CM_eig,
+            splitter=None)
+    elif setting == 'rdkit':
+        featurizer_rdkit = dc.feat.RDKitDescriptors()
+        tasks, datasets, transformers = loader(
+            shard_size=2000,
+            featurizer=featurizer_rdkit,
+            splitter=None)
+
+    elif setting == 'MACCS':
+        featurizer = dc.feat.MACCSKeysFingerprint()
+        tasks, datasets, transformers = loader(
+            shard_size=2000,
+            featurizer=featurizer,
+            splitter=None)
+    elif setting == '1HOT':
+        featurizer = dc.feat.OneHotFeaturizer()
+        tasks, datasets, transformers = loader(
+            shard_size=2000,
+            featurizer=featurizer,
+            splitter=None)
+    elif setting == 'CM':
+        featurizer = dc.feat.CoulombMatrix(max_atoms=23)
+        tasks, datasets, transformers = loader(
+            shard_size=2000,
+            featurizer=featurizer,
+            splitter=None)
+    elif setting == 'ConvMol':
+        featurizer = dc.feat.ConvMolFeaturizer()
+        tasks, datasets, transformers = loader(
+            shard_size=2000,
+            featurizer=featurizer,
+            splitter=None)
+    elif setting == 'Weave':
+        featurizer = dc.feat.WeaveFeaturizer()
+        tasks, datasets, transformers = loader(
+            shard_size=2000,
+            featurizer=featurizer,
+            splitter=None)
+    elif setting == 'Smiles2Img':
+        # featurizer = dc.feat.SmilesToImage(
+        #    img_size=250,
+        #    max_len=250,
+        #    res=0.5)
+        tasks, datasets, transformers = loader(
+            shard_size=2000,
+            featurizer='smiles2img',
+            splitter=None,
+            img_spec='std')  # for bnw images
+    else:
+        print('meh no data imported')
+    print
+    return tasks, datasets, transformers
+
+
+def model_selector(
+        model_setting,
+        n_tasks,
+        n_features=None,
+        n_classes=None,
+        mode='regression'):
+    """Change model settings here
+    model_setting: MTR, DTNN, GraphConv
+    n_tasks,
+    n_features"""
+    if model_setting == 'MTR':
+        print('Using multitask regressor model')
+        model = dc.models.MultitaskRegressor(
+            n_tasks=n_tasks,
+            n_features=n_features,
+            # layer_sizes=[1000,1000,500,20],
+            dropouts=0.2,
+            # learning_rate=0.001,
+            residual=True)
+    elif model_setting == 'MTC':
+        print('Using multitask classifier model')
+        model = dc.models.MultitaskClassifier(
+            n_tasks=n_tasks,
+            n_features=n_features,
+            # layer_sizes=[1000,1000,500,20],
+            dropouts=0.2,
+            # learning_rate=0.001,
+            residual=True)
+    elif model_setting == 'DTNN':
+        print('Using DTNN model')
+        model = dc.models.DTNNModel(
+            n_tasks=n_tasks,
+            mode=mode)
+    elif model_setting == 'GraphConv':
+        print('Using GraphConvMol model')
+        model = dc.models.GraphConvModel(
+            n_tasks=n_tasks,  # size of y, we have one output task here: finding toxicity
+            weight_init_stddevs=0.01,
+            bias_init_consts=0.0,
+            weight_decay_penalty=0.0,
+            weight_decay_penalty_type="l2",
+            dropouts=0.2,
+            batch_size=100,
+            mode=mode,
+            n_classes=n_classes
+        )
+    elif model_setting == 'Weave':
+        print('Using Weave model')
+        model = dc.models.WeaveModel(
+            n_tasks=n_tasks,  # size of y, we have one output task here: finding toxicity
+            # n_weave = 2,
+            dropouts=0.2,
+            n_classes=n_classes,
+            batch_size=100,
+            mode=mode
+        )
+    elif model_setting == 'ChemCeption':
+        model = dc.models.ChemCeption(
+            img_spec='std',
+            n_tasks=n_tasks,
+            mode=mode)
+    return model
+
+
+def deepchem_regression_experiment(
+        metrics,
+        metric_selector,
+        feat_setting='ECFP',
+        loader=dc.molnet.load_qm7,
+        model_setting='MTR',
+        dimension=1,
+        num_repeats=5,
+        num_epochs=250,
+        split_function=dc.splits.RandomSplitter(),
+        split_fraction=None,
+        patience=15,
+        metric_labels=['mean_squared_error',
+                       'pearson_r2_score',
+                       'mae_score',
+                       'rmse']):
+    """runs repeated training with topol input features
+    uses default multitask regressor class
+    does splitting and transforming
+    returns metrics
+
+    dataset: overall original dataset, before splitting
+    transformers: deepchem transformer
+    Splitter_object: deepchem splitter
+    num_epochs: num epochs if not early stopping
+    metric_selector: whihc one to train wiht
+    split fraction: train, val, test split as decimal
+    patience: for early stopping
+    metric_labels: add rmse here if you want it, do not add to metrics
+    metrics: list of metrics"""
+
+    ## in function
+
+    if split_fraction == None:
+        split_fraction = [0.8, 0.1, 0.1]
+
+    frac_train = split_fraction[0]
+    frac_valid = split_fraction[1]
+    frac_test = split_fraction[2]
+    out = []
+    Splitter = split_function
+
+
+    train_scores, validate_scores, test_scores = [], [], []
+    print(f'Metric selected is {metric_labels[metric_selector]}')
+    for i in range(num_repeats):
+        ################### selects different inputs ##############
+        print(f'Using dataset selector setting {feat_setting}')
+        tasks, dataset, transformers = dataset_selector(
+            feat_setting,
+            loader)
+
+        dataset=dataset[0] # a tuple of a single dataset
+        train_dataset, valid_dataset, test_dataset = Splitter.train_valid_test_split(
+                        dataset=dataset,
+                        frac_train=frac_train,
+                        frac_valid=frac_valid,
+                        frac_test=frac_test)
+        datasets = (train_dataset, valid_dataset, test_dataset)
+        print(f"Training with {len(train_dataset.y)} points")
+        print(f"Validation with {len(valid_dataset.y)} points")
+        print(f"Testing with {len(test_dataset.y)} points")
+        print(f"Total dataset size: {len(train_dataset.y) + len(valid_dataset.y) + len(test_dataset.y)}")
+        task_list = tasks
+        ########################################################
+        # actual model here
+        if dimension == 1:
+
+            model = model_selector(
+                model_setting,
+                n_tasks=len(tasks),
+                n_features=len(train_dataset.X[3]))
+        elif dimension == 2:
+            model = model_selector(
+                model_setting,
+                n_tasks=len(tasks))
+        #######################################################
+        callback = dc.models.ValidationCallback(
+            valid_dataset,
+            patience,
+            metrics[metric_selector])
+        # fit da model
+        model.fit(train_dataset, nb_epoch=num_epochs, callbacks=callback)
+
+        # little function to calc metrics on this data
+        out.append(get_them_metrics(
+            model,
+            datasets,
+            metrics,
+            metric_labels,
+            transformers))
+
+    pd_out = pd.DataFrame(out, columns=['tr_mse', 'tr_r2', 'tr_mae', 'tr_rmse',
+                                        'val_mse', 'val_r2', 'val_mae', 'val_rmse',
+                                        'te_mse', 'te_r2', 'te_mae', 'te_rmse'])
+    return pd_out
+
+def deepchem_classification_experiment(
+        metrics,
+        metric_selector,
+        feat_setting='ECFP',
+        loader=dc.molnet.load_qm7,
+        model_setting='MTR',
+        dimension=1,
+        n_classes=2,
+        num_repeats=5,
+        num_epochs=250,
+        split_function=dc.splits.RandomSplitter(),
+        split_fraction=None,
+        patience=15,
+        metric_labels=['mean_squared_error',
+                       'pearson_r2_score',
+                       'mae_score',
+                       'rmse']):
+    """runs repeated training with topol input features
+    uses default multitask regressor class
+    does splitting and transforming
+    returns metrics
+
+    dataset: overall original dataset, before splitting
+    transformers: deepchem transformer
+    Splitter_object: deepchem splitter
+    num_epochs: num epochs if not early stopping
+    metric_selector: whihc one to train wiht
+    split fraction: train, val, test split as decimal
+    patience: for early stopping
+    metric_labels: add rmse here if you want it, do not add to metrics
+    metrics: list of metrics"""
+
+    ## in function
+
+    if split_fraction == None:
+        split_fraction = [0.8, 0.1, 0.1]
+
+    frac_train = split_fraction[0]
+    frac_valid = split_fraction[1]
+    frac_test = split_fraction[2]
+    out = []
+    Splitter = split_function
+
+
+    train_scores, validate_scores, test_scores = [], [], []
+    print(f'Metric selected is {metric_labels[metric_selector]}')
+    for i in range(num_repeats):
+        ################### selects different inputs ##############
+        print(f'Using dataset selector setting {feat_setting}')
+        tasks, dataset, transformers = dataset_selector(
+            feat_setting,
+            loader)
+
+        dataset=dataset[0] # a tuple of a single dataset
+        train_dataset, valid_dataset, test_dataset = Splitter.train_valid_test_split(
+                        dataset=dataset,
+                        frac_train=frac_train,
+                        frac_valid=frac_valid,
+                        frac_test=frac_test)
+        datasets = (train_dataset, valid_dataset, test_dataset)
+        print(f"Training with {len(train_dataset.y)} points")
+        print(f"Validation with {len(valid_dataset.y)} points")
+        print(f"Testing with {len(test_dataset.y)} points")
+        print(f"Total dataset size: {len(train_dataset.y) + len(valid_dataset.y) + len(test_dataset.y)}")
+        task_list = tasks
+        ########################################################
+        # actual model here
+        if dimension == 1:
+
+            model = model_selector(
+                model_setting,
+                n_tasks=len(tasks),
+                n_features=len(train_dataset.X[3]),
+                mode='classification',
+                n_classes=2)
+        elif dimension == 2:
+            model = model_selector(
+                model_setting,
+                n_tasks=len(tasks),
+                mode='classification',
+                n_classes=2)
+        #######################################################
+        callback = dc.models.ValidationCallback(
+            valid_dataset,
+            patience,
+            metrics[metric_selector])
+        # fit da model
+        model.fit(train_dataset, nb_epoch=num_epochs, callbacks=callback)
+
+        # little function to calc metrics on this data
+        out.append(get_them_metrics(
+            model,
+            datasets,
+            metrics,
+            metric_labels,
+            transformers))
+
+    pd_out = pd.DataFrame(out, columns=['tr_bal_acc', 'tr_prc_auc', 'tr_roc_auc', 'tr_f1',
+                                        'val_bal_acc', 'val_prc_auc', 'val_roc_auc', 'val_f1',
+                                        'te_bal_acc', 'te_prc_auc', 'te_roc_auc', 'te_f1'])
+    return pd_out
+
+def remove_specific_points(y_values, specific_points):
+    """removes specific lines in the .csv file
+    presumably because rdkit fails on them
+    specific_points : lines to remove, 0 indexed!!!!"""
+    Failures = specific_points
+    new_y = np.zeros(len(y_values) - len(Failures)).reshape((-1, 1))
+    count=0
+    for i in range(len(y_values)):
+        #print(f"i: {i}")
+        if i in Failures:
+            print(f"Failure: i is {i}, y_values[i] is {y_values[i]}" )
+        else:
+        #    print(f"count: {count}")
+        #    print(dataset.y[i])
+            new_y[count]=y_values[i]
+            count = count + 1
+    return new_y
+
+def reload_experiment_dataframes(
+    list_of_filenames,
+    exclusion_list=[]):
+    """reloads csv files into a list of dataframes"""
+
+    list_of_dataframes= []
+    for file_no in range(len(list_of_filenames)):
+        if not file_no in exclusion_list:
+            this_file = list_of_filenames[file_no] + '.csv'
+            print(this_file)
+            list_of_dataframes.append(
+                pd.read_csv(
+                    os.path.join(
+                        results_dir,this_file)))
+    return list_of_dataframes
+
+
+def method_comparison_plotter(
+        list_of_data_frames,
+        list_of_columns,
+        color_list,
+        exclusion_list=[],
+        df_exclusion_list=[],
+        label_list=[],
+        best_con=None,
+        best_con_error=None,
+        best_gr=None,
+        best_gr_error=None,
+        x_label='',
+        y_label='',
+        filename='method_comparison',
+        rider='all_data.png', results_dir=''):
+    """Plotter
+    list of data frames: list of results
+    list_of_columns: which matrics to use (columsn in df)
+    color_list = which colours to use
+    exclusion_list: whether to miss out a df - either cos missing or unwanted
+    df_exclusion_list: whether to miss out a column ONLY if not missing
+    label_list: labels per dataset
+    best_con: best 1D method
+    best_con_error: std err
+    best_gr: best graph method
+    best_gr_error=None,
+    x_label='',
+    y_label='',
+    filename='method_comparison',
+    rider='all_data.png')"""
+
+    # Best=1.92
+    # pick subset of colours
+    if color_list == None:
+        color_list = ["#1f77f4", "#f62728",  # red blue ecfp
+                      "#1f77f4", "#f62728",  # maccs
+                      "#1f77f4", "#f62728",  # rdkit
+                      "#88fff4", "#552200",  # brown green # cmeig
+                      "#61ff33", "#ffb433",  # green orange #sm2img
+                      "#61ff33", "#ffb433",  # gc
+                      "#61ff33", "#ffb433",  # weave         
+                      "#88fff4", "#552200",  # brown green    #cm           
+                      "#5f77f4", "#f62788",  # pink blue tdaf
+                      "#5f77f4", "#f62788"]  # pca-tdaf
+    # get subset of labels
+    if label_list == None:
+        label_list = ['ECFP',
+                      "MACCS",
+                      "rdkit",
+                      "CM_eig",
+                      'Sm2Img',
+                      'GC',
+                      'Weave',
+                      'CM',
+                      "TDAF",
+                      "PCA-TDAF"]
+    if exclusion_list:
+        color_exclusion_list = []
+        for excluded in exclusion_list:
+            for i in range(len(list_of_columns)):
+                color_exclusion_list.append((excluded * len(list_of_columns)) + i)
+        print(color_exclusion_list)
+        color_list = [color_list[i] for i in range(len(color_list)) if i not in color_exclusion_list]
+        print(color_list)
+        # subset of labels
+        egg = [label_list[i] for i in range(len(label_list)) if i not in exclusion_list]
+        label_list = egg
+
+    data = []
+    for df_no in range(len(list_of_data_frames)):
+        if df_no not in df_exclusion_list:
+            df = list_of_data_frames[df_no]
+            for col in list_of_columns:
+                data.append(df[col])
+
+    # calc and jot down the means
+    print(len(data))
+    means = [np.mean(x) for x in data]
+    stds = [np.std(x) for x in data]
+    egg = {'means': means, 'stds': stds}
+    df2 = pd.DataFrame(egg)
+    # saving the dataframe 
+    sigh = rider.split('.')[0]
+    df2.to_csv(os.path.join(results_dir, 'means_stds_in_plot_' + filename + sigh + 'csv'))
+
+    x_positions = [x + 1 for x in range(len(means))]
+    ax = plt.figure(figsize=(16, 9))
+    plt.rcParams.update({'font.size': 22})
+
+    plt.bar(x_positions, means,
+            color=color_list,
+            edgecolor='k',
+            linewidth='3',
+            yerr=stds,
+            error_kw=dict(lw=5, capsize=15, capthick=3))
+
+    for i in range(len(means)):
+        x = data[i];
+        plt.plot(np.ones(len(x)) * (i + 1), x, 'o', color="#444444")
+
+    # axes.set_ylim([0.5,4.5])
+    # axes.set_xlim([0.45,4.55])
+    x_tick_list = [1.5, 3.5, 5.5, 7.5, 9.5, 11.5, 13.5, 15.5, 17.5, 19.5]
+
+    x_tick_list = x_tick_list[:len(label_list)]
+    plt.xticks(x_tick_list,
+               label_list)
+    if best_con:
+        plt.plot([0.5, max(x_tick_list) + 1], [best_con, best_con], 'k', linewidth=4, linestyle='dashed')
+
+    if best_con_error:
+        plt.plot([0.5, max(x_tick_list) + 1], [best_con + best_con_error, best_con + best_con_error], 'grey',
+                 linewidth=4, linestyle='dotted')
+        plt.plot([0.5, max(x_tick_list) + 1], [best_con - best_con_error, best_con - best_con_error], 'grey',
+                 linewidth=4, linestyle='dotted')
+
+    if best_gr:
+        plt.plot([0.5, max(x_tick_list) + 1], [best_con, best_con], 'g', linewidth=4, linestyle='dashed')
+
+    if best_gr_error:
+        plt.plot([0.5, max(x_tick_list) + 1], [best_con + best_con_error, best_con + best_con_error], 'darkseagreen',
+                 linewidth=4, linestyle='dotted')
+        plt.plot([0.5, max(x_tick_list) + 1], [best_con - best_con_error, best_con - best_con_error], 'darkseagreen',
+                 linewidth=4, linestyle='dotted')
+
+    axes = plt.gca()
+    plt.ylabel(y_label)
+    plt.xlabel(x_label)
+    plt.savefig(os.path.join(results_dir, filename + rider))
+    return ax, means, stds
