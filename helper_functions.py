@@ -1104,6 +1104,9 @@ def topol_regression_experiment(
     frac_test = split_fraction[2]
     train_scores, validate_scores, test_scores = [], [], []
     print(f'Metric selected is {metric_labels[metric_selector]}')
+    # transforms datasets wooo
+    dataset = do_transform(transformers, dataset)
+
     for i in range(num_repeats):
         # make datasets
         train_dataset, valid_dataset, test_dataset = Splitter_Object.train_valid_test_split(
@@ -1116,10 +1119,6 @@ def topol_regression_experiment(
         print(f"Testing with {len(test_dataset.y)} points")
         print(f"Total dataset size: {len(train_dataset.y) + len(valid_dataset.y) + len(test_dataset.y)}")
 
-        # transforms datasets wooo
-        train_dataset = do_transform(transformers, train_dataset)
-        valid_dataset = do_transform(transformers, valid_dataset)
-        test_dataset = do_transform(transformers, test_dataset)
         # for later
         datasets = [train_dataset, valid_dataset, test_dataset]
         # actual model here
@@ -1200,10 +1199,6 @@ def no_transform_topol_regression_experiment(
         print(f"Validation with {len(valid_dataset.y)} points")
         print(f"Testing with {len(test_dataset.y)} points")
         print(f"Total dataset size: {len(train_dataset.y) + len(valid_dataset.y) + len(test_dataset.y)}")
-        # transforms datasets wooo
-        # train_dataset=do_transform(transformers, train_dataset)
-        # valid_dataset=do_transform(transformers, valid_dataset)
-        # test_dataset=do_transform(transformers, test_dataset)
         # for later
         datasets = [train_dataset, valid_dataset, test_dataset]
         # actual model here
@@ -1234,6 +1229,91 @@ def no_transform_topol_regression_experiment(
                                         'te_mse', 'te_r2', 'te_mae', 'te_rmse'])
     return pd_out
 
+def topol_classification_experiment(
+        dataset,
+        transformers,
+        Splitter_Object,
+        tasks,
+        metrics,
+        metric_selector,
+        num_repeats=5,
+        num_epochs=250,
+        split_fraction=[0.8, 0.1, 0.1],
+        patience=15,
+        n_classes=2,
+        metric_labels=['balanced_accuracy_score',
+                 'prc_auc_score',
+                 'roc_auc_score',
+                 'f1_score']):
+    """runs repeated training with topol input features
+    uses default multitask regressor class
+    does splitting and transforming
+    returns metrics
+
+    dataset: overall original dataset, before splitting
+    transformers: deepchem transformer
+    Splitter_object: deepchem splitter
+    num_epochs: num epochs if not early stopping
+    metric_selector: whihc one to train wiht
+    split fraction: train, val, test split as decimal
+    patience: for early stopping
+    metric_labels: add rmse here if you want it, do not add to metrics
+    metrics: list of metrics"""
+
+    ## in function
+
+    out = []
+
+    frac_train = split_fraction[0]
+    frac_valid = split_fraction[1]
+    frac_test = split_fraction[2]
+    train_scores, validate_scores, test_scores = [], [], []
+    print(f'Metric selected is {metric_labels[metric_selector]}')
+    # transforms datasets wooo
+    dataset = do_transform(transformers, dataset)
+    for i in range(num_repeats):
+        # make datasets
+        train_dataset, valid_dataset, test_dataset = Splitter_Object.train_valid_test_split(
+            dataset=dataset,
+            frac_train=frac_train,
+            frac_valid=frac_valid,
+            frac_test=frac_test)
+        print(f"Training with {len(train_dataset.y)} points")
+        print(f"Validation with {len(valid_dataset.y)} points")
+        print(f"Testing with {len(test_dataset.y)} points")
+        print(f"Total dataset size: {len(train_dataset.y) + len(valid_dataset.y) + len(test_dataset.y)}")
+
+
+        # for later
+        datasets = [train_dataset, valid_dataset, test_dataset]
+        # actual model here
+        model = dc.models.MultitaskClassifier(
+            n_tasks=len(tasks),
+            n_features=len(train_dataset.X[3]),
+            # layer_sizes=[1000,1000,500,20],
+            # dropouts=0.2,
+            # learning_rate=0.001,
+            n_classes=n_classes,
+            residual=True)
+        callback = dc.models.ValidationCallback(
+            valid_dataset,
+            patience,
+            metrics[metric_selector])
+        # fit da model
+        model.fit(train_dataset, nb_epoch=num_epochs, callbacks=callback)
+
+        # little function to calc metrics on this data
+        out.append(get_them_metrics(
+            model,
+            datasets,
+            metrics,
+            metric_labels,
+            transformers))
+
+    pd_out = pd.DataFrame(out, columns=['tr_bal_acc', 'tr_prc_auc', 'tr_roc_auc', 'tr_f1',
+                                        'val_bal_acc', 'val_prc_auc', 'val_roc_auc', 'val_f1',
+                                        'te_bal_acc', 'te_prc_auc', 'te_roc_auc', 'te_f1'])
+    return pd_out
 
 def dataset_selector(
         setting,
@@ -1336,6 +1416,7 @@ def model_selector(
             # layer_sizes=[1000,1000,500,20],
             dropouts=0.2,
             # learning_rate=0.001,
+            n_classes=n_classes,
             residual=True)
     elif model_setting == 'DTNN':
         print('Using DTNN model')
@@ -1587,6 +1668,25 @@ def remove_specific_points(y_values, specific_points):
         #    print(f"count: {count}")
         #    print(dataset.y[i])
             new_y[count]=y_values[i]
+            count = count + 1
+    return new_y
+
+def remove_specific_points_str(y_values, specific_points):
+    """removes specific lines in the .csv file
+    presumably because rdkit fails on them
+    specific_points : lines to remove, 0 indexed!!!!
+    does strings"""
+    Failures = specific_points
+    new_y = []
+    count=0
+    for i in range(len(y_values)):
+        #print(f"i: {i}")
+        if i in Failures:
+            print(f"Failure: i is {i}, y_values[i] is {y_values[i]}" )
+        else:
+            #print(f"count: {count}")
+            #print(y_values[i])
+            new_y.append(y_values[i])
             count = count + 1
     return new_y
 

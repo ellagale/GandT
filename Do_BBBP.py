@@ -30,22 +30,27 @@ dataset_name='bbbp'
 print(f'Using dataset {dataset_name}')
 # regression datasets need to be untransformed, classification does not
 is_classification = True
+current_ptr = 0
 
-make_dataset=True # whether to recalc the dataset
+make_dataset=False # whether to recalc the dataset
 make_hdf5 = True
 
 do_specified_range = True
-selected_range = [x for x in range(1, 2)]
+selected_range = [x for x in range(0,2049)]
+num_of_molecules_to_do = len(selected_range)
+if do_specified_range:
+    current_ptr = min(selected_range)
   ## change this to 0 to do all of them
 testing = False # whether to only do a few molecules
 if testing:
     num_of_molecules_to_do = len(selected_range)
 else:
     num_of_molecules_to_do: int = 0  # to go into functions, 0 is an override to do all
+#num_of_molecules_to_do = len(selected_range)
 ###########################################################################
 
 #BBBP has some molecules that cannot be featurised :(
-Failures = [59, 61, 391, 614, 642, 645, 646, 647, 648, 649, 685, 1998]
+Failures = [59, 61, 179, 391, 614, 642, 645, 646, 647, 648, 649, 685, 1075, 1998] # add 179 tothis
 
 save_dir=r'F:\Nextcloud\science\Datasets\topol_datasets'
 results_dir=r"F:\Nextcloud\science\results\topology_and_graphs\d_" + dataset_name
@@ -86,10 +91,12 @@ num_of_molecules: int = len(dataset)
 #make_dataset = False
 
 
-current_ptr = 0
-batch_size = 100
+
+batch_size = 10
 if testing:
-    remaining = 2
+    remaining = 9
+elif do_specified_range:
+    remaining = len(selected_range)
 else:
     remaining = num_of_molecules
 
@@ -107,7 +114,7 @@ if make_dataset:
             h.temp_write_topol_data(
                 f,
                 remaining=remaining,
-                current_ptr=0,
+                current_ptr=current_ptr,
                 my_dataset=dataset,
                 num_of_topol_features=num_of_topol_features,
                 do_specified_range=do_specified_range,
@@ -130,7 +137,7 @@ if make_dataset:
 
     f.close()
 
-sys.exit(0)
+#sys.exit(0)
 ##################################################################################################################
 #                               load data                                                                        #
 ##################################################################################################################
@@ -162,7 +169,7 @@ with open(os.path.join(save_dir,dataset_name + '_SMILES.csv'), 'r') as read_obj:
     csv_reader = reader(read_obj)
     # Pass reader object to list() to get a list of lists
     input_SMILES_list = list(csv_reader)
-    SMILES_list=remove_specific_points_str(y_values=input_SMILES_list, specific_points=Failures)
+    SMILES_list=h.remove_specific_points_str(y_values=input_SMILES_list, specific_points=Failures)
 
 
 with open(os.path.join(save_dir,dataset_name + '_names.csv'), 'r') as read_obj:
@@ -170,7 +177,7 @@ with open(os.path.join(save_dir,dataset_name + '_names.csv'), 'r') as read_obj:
     csv_reader = reader(read_obj)
     # Pass reader object to list() to get a list of lists
     input_names_list = list(csv_reader)
-    names_list=remove_specific_points_str(y_values=input_names_list, specific_points=Failures)
+    names_list=h.remove_specific_points_str(y_values=input_names_list, specific_points=Failures)
 
 ################# now do the PCA ###################################################################################
 #pca = PCA(n_components=num_of_topol_features)
@@ -191,65 +198,66 @@ if make_hdf5:
 
         if num_of_molecules_override == 0:
             # do all proteins woo
-            num_of_molecules_to_do= num_of_molecules
+            num_of_molecules_to_do=len(topl_bbbp_all_list)
 
         else:
             num_of_molecules_to_do = num_of_molecules_override
-        print(f'Processing {num_of_molecules} molecules')
+        print(f'Processing {num_of_molecules_to_do} molecules')
         ##################### set up the output datasets ################################
 
         ## this sets up the output datasets
-        molID_ds = h.create_or_recreate_dataset(outfile, "molID", (num_of_molecules_to_do,), dtype=np.int8)
-        SMILES_ds = h.create_or_recreate_dataset(outfile, "SMILES", (num_of_molecules_to_do,), dtype=string_type)
-        name_ds = h.create_or_recreate_dataset(outfile, "name", (num_of_molecules_to_do,), dtype=string_type)
+
+        molID_ds = h.create_or_recreate_dataset(outfile, "molID", (num_of_molecules_to_do), dtype=np.int64)
+        SMILES_ds = h.create_or_recreate_dataset(outfile, "SMILES", (num_of_molecules_to_do), dtype=string_type)
+        name_ds = h.create_or_recreate_dataset(outfile, "name", (num_of_molecules_to_do), dtype=string_type)
             #                                       ##### topological data ###                              #
         ###### proteins #####
         #      Persistence entropy
-        P_pers_S_1_ds = h.create_or_recreate_dataset(outfile, "pers_S_1", (num_of_molecules_to_do,), dtype=np.float32)
-        P_pers_S_2_ds = h.create_or_recreate_dataset(outfile, "pers_S_2", (num_of_molecules_to_do,), dtype=np.float32)
-        P_pers_S_3_ds = h.create_or_recreate_dataset(outfile, "pers_S_3", (num_of_molecules_to_do,), dtype=np.float32)
+        P_pers_S_1_ds = h.create_or_recreate_dataset(outfile, "pers_S_1", (num_of_molecules_to_do), dtype=np.float32)
+        P_pers_S_2_ds = h.create_or_recreate_dataset(outfile, "pers_S_2", (num_of_molecules_to_do), dtype=np.float32)
+        P_pers_S_3_ds = h.create_or_recreate_dataset(outfile, "pers_S_3", (num_of_molecules_to_do), dtype=np.float32)
         #      No. of points
-        P_no_p_1_ds = h.create_or_recreate_dataset(outfile, "no_p_1", (num_of_molecules_to_do,), dtype=np.float32)
-        P_no_p_2_ds = h.create_or_recreate_dataset(outfile, "no_p_2", (num_of_molecules_to_do,), dtype=np.float32)
-        P_no_p_3_ds = h.create_or_recreate_dataset(outfile, "no_p_3", (num_of_molecules_to_do,), dtype=np.float32)
+        P_no_p_1_ds = h.create_or_recreate_dataset(outfile, "no_p_1", (num_of_molecules_to_do), dtype=np.float32)
+        P_no_p_2_ds = h.create_or_recreate_dataset(outfile, "no_p_2", (num_of_molecules_to_do), dtype=np.float32)
+        P_no_p_3_ds = h.create_or_recreate_dataset(outfile, "no_p_3", (num_of_molecules_to_do), dtype=np.float32)
         #      Bottleneck
-        P_bottle_1_ds = h.create_or_recreate_dataset(outfile, "bottle_1", (num_of_molecules_to_do,), dtype=np.float32)
-        P_bottle_2_ds = h.create_or_recreate_dataset(outfile, "bottle_2", (num_of_molecules_to_do,), dtype=np.float32)
-        P_bottle_3_ds = h.create_or_recreate_dataset(outfile, "bottle_3", (num_of_molecules_to_do,), dtype=np.float32)
+        P_bottle_1_ds = h.create_or_recreate_dataset(outfile, "bottle_1", (num_of_molecules_to_do), dtype=np.float32)
+        P_bottle_2_ds = h.create_or_recreate_dataset(outfile, "bottle_2", (num_of_molecules_to_do), dtype=np.float32)
+        P_bottle_3_ds = h.create_or_recreate_dataset(outfile, "bottle_3", (num_of_molecules_to_do), dtype=np.float32)
         #      Wasserstein
-        P_wasser_1_ds = h.create_or_recreate_dataset(outfile, "wasser_1", (num_of_molecules_to_do,), dtype=np.float32)
-        P_wasser_2_ds = h.create_or_recreate_dataset(outfile, "wasser_2", (num_of_molecules_to_do,), dtype=np.float32)
-        P_wasser_3_ds = h.create_or_recreate_dataset(outfile, "wasser_3", (num_of_molecules_to_do,), dtype=np.float32)
+        P_wasser_1_ds = h.create_or_recreate_dataset(outfile, "wasser_1", (num_of_molecules_to_do), dtype=np.float32)
+        P_wasser_2_ds = h.create_or_recreate_dataset(outfile, "wasser_2", (num_of_molecules_to_do), dtype=np.float32)
+        P_wasser_3_ds = h.create_or_recreate_dataset(outfile, "wasser_3", (num_of_molecules_to_do), dtype=np.float32)
         #      landscape
-        P_landsc_1_ds = h.create_or_recreate_dataset(outfile, "landsc_1", (num_of_molecules_to_do,), dtype=np.float32)
-        P_landsc_2_ds = h.create_or_recreate_dataset(outfile, "landsc_2", (num_of_molecules_to_do,), dtype=np.float32)
-        P_landsc_3_ds = h.create_or_recreate_dataset(outfile, "landsc_3", (num_of_molecules_to_do,), dtype=np.float32)
+        P_landsc_1_ds = h.create_or_recreate_dataset(outfile, "landsc_1", (num_of_molecules_to_do), dtype=np.float32)
+        P_landsc_2_ds = h.create_or_recreate_dataset(outfile, "landsc_2", (num_of_molecules_to_do), dtype=np.float32)
+        P_landsc_3_ds = h.create_or_recreate_dataset(outfile, "landsc_3", (num_of_molecules_to_do), dtype=np.float32)
         #      persistence image
-        P_pers_img_1_ds = h.create_or_recreate_dataset(outfile, "pers_img_1", (num_of_molecules_to_do,), dtype=np.float32)
-        P_pers_img_2_ds = h.create_or_recreate_dataset(outfile, "pers_img_2", (num_of_molecules_to_do,), dtype=np.float32)
-        P_pers_img_3_ds = h.create_or_recreate_dataset(outfile, "pers_img_3", (num_of_molecules_to_do,), dtype=np.float32)
+        P_pers_img_1_ds = h.create_or_recreate_dataset(outfile, "pers_img_1", (num_of_molecules_to_do), dtype=np.float32)
+        P_pers_img_2_ds = h.create_or_recreate_dataset(outfile, "pers_img_2", (num_of_molecules_to_do), dtype=np.float32)
+        P_pers_img_3_ds = h.create_or_recreate_dataset(outfile, "pers_img_3", (num_of_molecules_to_do), dtype=np.float32)
 
             #                                       PCs                                                 #
-        PCA_1_ds = h.create_or_recreate_dataset(outfile, "PCA_1", (num_of_molecules_to_do,), dtype=np.float32)
-        PCA_2_ds = h.create_or_recreate_dataset(outfile, "PCA_2", (num_of_molecules_to_do,), dtype=np.float32)
-        PCA_3_ds = h.create_or_recreate_dataset(outfile, "PCA_3", (num_of_molecules_to_do,), dtype=np.float32)
-        PCA_4_ds = h.create_or_recreate_dataset(outfile, "PCA_4", (num_of_molecules_to_do,), dtype=np.float32)
-        PCA_5_ds = h.create_or_recreate_dataset(outfile, "PCA_5", (num_of_molecules_to_do,), dtype=np.float32)
-        PCA_6_ds = h.create_or_recreate_dataset(outfile, "PCA_6", (num_of_molecules_to_do,), dtype=np.float32)
-        PCA_7_ds = h.create_or_recreate_dataset(outfile, "PCA_7", (num_of_molecules_to_do,), dtype=np.float32)
-        PCA_8_ds = h.create_or_recreate_dataset(outfile, "PCA_8", (num_of_molecules_to_do,), dtype=np.float32)
-        PCA_9_ds = h.create_or_recreate_dataset(outfile, "PCA_9", (num_of_molecules_to_do,), dtype=np.float32)
-        PCA_10_ds = h.create_or_recreate_dataset(outfile, "PCA_10", (num_of_molecules_to_do,), dtype=np.float32)
-        PCA_11_ds = h.create_or_recreate_dataset(outfile, "PCA_11", (num_of_molecules_to_do,), dtype=np.float32)
-        PCA_12_ds = h.create_or_recreate_dataset(outfile, "PCA_12", (num_of_molecules_to_do,), dtype=np.float32)
-        PCA_13_ds = h.create_or_recreate_dataset(outfile, "PCA_13", (num_of_molecules_to_do,), dtype=np.float32)
-        PCA_14_ds = h.create_or_recreate_dataset(outfile, "PCA_14", (num_of_molecules_to_do,), dtype=np.float32)
-        PCA_15_ds = h.create_or_recreate_dataset(outfile, "PCA_15", (num_of_molecules_to_do,), dtype=np.float32)
-        PCA_16_ds = h.create_or_recreate_dataset(outfile, "PCA_16", (num_of_molecules_to_do,), dtype=np.float32)
-        PCA_17_ds = h.create_or_recreate_dataset(outfile, "PCA_17", (num_of_molecules_to_do,), dtype=np.float32)
-        PCA_18_ds = h.create_or_recreate_dataset(outfile, "PCA_18", (num_of_molecules_to_do,), dtype=np.float32)
+        PCA_1_ds = h.create_or_recreate_dataset(outfile, "PCA_1", (num_of_molecules_to_do), dtype=np.float32)
+        PCA_2_ds = h.create_or_recreate_dataset(outfile, "PCA_2", (num_of_molecules_to_do), dtype=np.float32)
+        PCA_3_ds = h.create_or_recreate_dataset(outfile, "PCA_3", (num_of_molecules_to_do), dtype=np.float32)
+        PCA_4_ds = h.create_or_recreate_dataset(outfile, "PCA_4", (num_of_molecules_to_do), dtype=np.float32)
+        PCA_5_ds = h.create_or_recreate_dataset(outfile, "PCA_5", (num_of_molecules_to_do), dtype=np.float32)
+        PCA_6_ds = h.create_or_recreate_dataset(outfile, "PCA_6", (num_of_molecules_to_do), dtype=np.float32)
+        PCA_7_ds = h.create_or_recreate_dataset(outfile, "PCA_7", (num_of_molecules_to_do), dtype=np.float32)
+        PCA_8_ds = h.create_or_recreate_dataset(outfile, "PCA_8", (num_of_molecules_to_do), dtype=np.float32)
+        PCA_9_ds = h.create_or_recreate_dataset(outfile, "PCA_9", (num_of_molecules_to_do), dtype=np.float32)
+        PCA_10_ds = h.create_or_recreate_dataset(outfile, "PCA_10", (num_of_molecules_to_do), dtype=np.float32)
+        PCA_11_ds = h.create_or_recreate_dataset(outfile, "PCA_11", (num_of_molecules_to_do), dtype=np.float32)
+        PCA_12_ds = h.create_or_recreate_dataset(outfile, "PCA_12", (num_of_molecules_to_do), dtype=np.float32)
+        PCA_13_ds = h.create_or_recreate_dataset(outfile, "PCA_13", (num_of_molecules_to_do), dtype=np.float32)
+        PCA_14_ds = h.create_or_recreate_dataset(outfile, "PCA_14", (num_of_molecules_to_do), dtype=np.float32)
+        PCA_15_ds = h.create_or_recreate_dataset(outfile, "PCA_15", (num_of_molecules_to_do), dtype=np.float32)
+        PCA_16_ds = h.create_or_recreate_dataset(outfile, "PCA_16", (num_of_molecules_to_do), dtype=np.float32)
+        PCA_17_ds = h.create_or_recreate_dataset(outfile, "PCA_17", (num_of_molecules_to_do), dtype=np.float32)
+        PCA_18_ds = h.create_or_recreate_dataset(outfile, "PCA_18", (num_of_molecules_to_do), dtype=np.float32)
             # # #                           targets                                         # # #
-        target_ds = h.create_or_recreate_dataset(outfile, "'p_np'", (num_of_molecules_to_do,), dtype=np.float32)
+        target_ds = h.create_or_recreate_dataset(outfile, "p_np", (num_of_molecules_to_do), dtype=np.int8)
         #target_norm_ds = h.create_or_recreate_dataset(outfile, "'p_np'_norm", (num_of_molecules_to_do,), dtype=np.float32)
 
         for mol_idx in range(num_of_molecules_to_do):
@@ -286,8 +294,11 @@ if make_hdf5:
             PCA_16_ds[mol_idx], PCA_17_ds[mol_idx], PCA_18_ds[mol_idx])=principalComponents_large[mol_idx]
 
             # targets
-
-            target_ds[mol_idx] = np.array(targets_topl_bbbp_all_list[mol_idx], dtype='f8')
+            try:
+                # csvreader is being stupid and reading a 1 as 1.0.
+                target_ds[mol_idx] = np.array([int(float(x)) for x in targets_topl_bbbp_all_list[mol_idx]])
+            except TypeError as e:
+                raise (e)
             #target_norm_ds[mol_idx] = np.array(targets_topl_bbbp_all_list[mol_idx], dtype='f8')
 
     outfile.close()
