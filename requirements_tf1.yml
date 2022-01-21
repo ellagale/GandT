@@ -1,4 +1,4 @@
-name: graphs-and-topology-for-chemists-tf1
+name: deepchem-tf1-dc2p3
 channels:
   - conda-forge
   - defaults

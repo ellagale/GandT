@@ -1,4 +1,4 @@
-name: tdaf-tf2p7h2
+name: tdaf-tf2p7
 channels:
   - conda-forge
   - defaults
