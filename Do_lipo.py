@@ -36,12 +36,12 @@ make_dataset=True # whether to recalc the dataset
 make_hdf5 = True
 
 do_specified_range = True
-selected_range = [x for x in range(0,2049)] # 4201
+selected_range = [x for x in range(3590,4199)] # 4201
 num_of_molecules_to_do = len(selected_range)
 if do_specified_range:
     current_ptr = min(selected_range)
   ## change this to 0 to do all of them
-testing = True # whether to only do a few molecules
+testing = False # whether to only do a few molecules
 if testing:
     num_of_molecules_to_do = len(selected_range)
 else:
@@ -50,7 +50,7 @@ else:
 ###########################################################################
 
 #lipo has some molecules that cannot be featurised :(
-Failures = [] #
+Failures = [3592] #
 
 save_dir=r'C:\Users\eg16993\OneDrive - University of Bristol\Documents\Datasets\topol_datasets'
 data_dir=r'C:\Users\eg16993\OneDrive - University of Bristol\Documents\Datasets'
@@ -112,7 +112,7 @@ if make_dataset:
             # train
             if not testing:
                 remaining = len(dataset)
-            h.temp_write_topol_data(
+            Failures = h.temp_write_topol_data(
                 f,
                 remaining=remaining,
                 current_ptr=current_ptr,
@@ -124,6 +124,9 @@ if make_dataset:
                 file_type='smiles',
                 skip_molecules=Failures
             )
+            print('#################################################################')
+            print(f'Failures in {dataset_name} are: {Failures}')
+            print('#################################################################')
             if not is_classification:
                 untransformed_train_y = transformers[0].untransform(dataset.y)
             else:
@@ -138,7 +141,7 @@ if make_dataset:
 
     f.close()
 
-#sys.exit(0)
+sys.exit(0)
 ##################################################################################################################
 #                               load data                                                                        #
 ##################################################################################################################

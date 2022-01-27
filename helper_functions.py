@@ -49,15 +49,28 @@ def coord_getter(data_dir, test_file, test_pdb_code, setting='pdb'):
 def coord_creator(smiles):
     """Calculates coords form smiles strings"""
     #test_file_location = os.path.join(data_dir, test_pdb_code, test_file)
+    bad_data = False
+    failed=False
     mol_orig = Chem.MolFromSmiles(smiles)
     mol_orig = Chem.AddHs(mol_orig)
-
-    status = AllChem.EmbedMolecule(mol_orig)
-    status = AllChem.UFFOptimizeMolecule(mol_orig)
-    egg = mol_orig.GetConformer()
-    rdkit.Chem.rdMolTransforms.CanonicalizeConformer(egg)
-    coords = egg.GetPositions()
-    return mol_orig, coords
+    ## TODO : this exception current does not work!
+    try:
+        status = AllChem.EmbedMolecule(mol_orig)
+    except:
+        print(status)
+        bad_data = True
+        failed=True
+        print('Bad data')
+    if not bad_data or status == -1:
+#    status = AllChem.EmbedMolecule(mol_orig)
+        status = AllChem.UFFOptimizeMolecule(mol_orig)
+        egg = mol_orig.GetConformer()
+        rdkit.Chem.rdMolTransforms.CanonicalizeConformer(egg)
+        coords = egg.GetPositions()
+    else:
+        #mol_orig = []
+        coords = []
+    return mol_orig, coords, failed
 
 
 def coord_getter_2(file_location, setting='pdb'):
@@ -266,7 +279,7 @@ def make_topological_features_for_PDBBind(df_cluster_core,
         elif structure_file_format == 'pdb':
             mol, coords = coord_getter_2(file_location, setting='pdb')
         elif structure_file_format == 'smiles': # no file to read!
-            mol, coords = coord_creator(smiles)
+            mol, coords, failed = coord_creator(smiles)
 
         # Track connected components, loops, and voids
         homology_dimensions = [0, 1, 2]
@@ -615,7 +628,10 @@ def make_topological_features_from_deepchem(my_dataset,
                 elif file_type == 'pdb':
                     mol, coords = coord_getter_2(file_location, setting='pdb')
                 elif file_type == 'smiles':
-                    mol, coords = coord_creator(mol)
+                    mol, coords, failed = coord_creator(mol)
+            if failed:
+                skip_molecules = skip_molecules.append(mol_idx)
+                continue
 
             # Track connected components, loops, and voids
             homology_dimensions = [0, 1, 2]
@@ -639,7 +655,7 @@ def make_topological_features_from_deepchem(my_dataset,
 
         topol_feat_mat = np.array(topol_feat_list)
 
-    return topol_feat_list, topol_feat_mat
+    return topol_feat_list, topol_feat_mat, skip_molecules
 
 ######################### functions to do experiments ! ##########################
 
@@ -771,7 +787,7 @@ def create_and_merge_dc_topol_features(my_dataset,
     # grab ligands
     print('Doing the molecules...')
 
-    topol_feat_list, topol_feat_mat = make_topological_features_from_deepchem(my_dataset,
+    topol_feat_list, topol_feat_mat, skip_molecules = make_topological_features_from_deepchem(my_dataset,
                                                                                 file_type=file_type,
                                                                                 verbose=False,
                                                                                 num_of_molecules=num_of_molecules,
@@ -786,7 +802,7 @@ def create_and_merge_dc_topol_features(my_dataset,
     if verbose:
         print(topol_feat_mat)
         print(topol_feat_list)
-    return (topol_feat_list, topol_feat_mat)
+    return (topol_feat_list, topol_feat_mat, skip_molecules)
 
 def temp_write_topol_data(
         f,
@@ -805,7 +821,7 @@ def temp_write_topol_data(
         this_batch = min(batch_size, remaining)
         this_range = list(range(current_ptr, current_ptr + this_batch))
 
-        out_list, y_new = create_and_merge_dc_topol_features(my_dataset,
+        out_list, y_new, skip_molecules = create_and_merge_dc_topol_features(my_dataset,
                                                              num_of_molecules=5, # overwritten by do_specified_Range
                                                              num_of_features=num_of_topol_features,
                                                              data_dir=data_dir,
@@ -820,7 +836,7 @@ def temp_write_topol_data(
             f.write(row + '\n')
         remaining -= this_batch
         current_ptr += this_batch
-    return
+    return skip_molecules
 
 def copy_targets_into_csv(
         y_fh,
