@@ -26,7 +26,7 @@ import matplotlib as plt
 
 num_of_molecules = 100
 
-results_dir=os.getcwd()
+results_dir = os.getcwd()
 
 
 def coord_getter(data_dir, test_file, test_pdb_code, setting='pdb'):
@@ -46,31 +46,32 @@ def coord_getter(data_dir, test_file, test_pdb_code, setting='pdb'):
     coords = egg.GetPositions()
     return mol_orig, coords
 
+
 def coord_creator(smiles):
     """Calculates coords form smiles strings"""
-    #test_file_location = os.path.join(data_dir, test_pdb_code, test_file)
-    bad_data = False
-    failed=False
+    # test_file_location = os.path.join(data_dir, test_pdb_code, test_file)
     mol_orig = Chem.MolFromSmiles(smiles)
+    if not mol_orig:
+        raise ValueError(f"Unable to generate molecule from {smiles}.")
     mol_orig = Chem.AddHs(mol_orig)
-    ## TODO : this exception current does not work!
-    try:
-        status = AllChem.EmbedMolecule(mol_orig)
-    except:
-        print(status)
-        bad_data = True
-        failed=True
-        print('Bad data')
-    if not bad_data or status == -1:
-#    status = AllChem.EmbedMolecule(mol_orig)
-        status = AllChem.UFFOptimizeMolecule(mol_orig)
-        egg = mol_orig.GetConformer()
-        rdkit.Chem.rdMolTransforms.CanonicalizeConformer(egg)
-        coords = egg.GetPositions()
-    else:
-        #mol_orig = []
-        coords = []
-    return mol_orig, coords, failed
+
+    status = AllChem.EmbedMolecule(mol_orig)
+    if status == -1:
+        # Unable to generate a conformer. Try again from random coords.
+        ps = AllChem.ETKDGv2()
+        ps.useRandomCoords = True
+        status = AllChem.EmbedMolecule(mol_orig, ps)
+        if status == -1:
+            # Still nope.
+            raise ValueError(f"Unable to generate a conformer from {smiles}.")
+
+    status = AllChem.UFFOptimizeMolecule(mol_orig)
+    if status == -1:
+        raise ValueError(f"Unable to optimise(!?) conformer from {smiles}")
+    egg = mol_orig.GetConformer()
+    rdkit.Chem.rdMolTransforms.CanonicalizeConformer(egg)
+    coords = egg.GetPositions()
+    return mol_orig, coords
 
 
 def coord_getter_2(file_location, setting='pdb'):
@@ -278,8 +279,8 @@ def make_topological_features_for_PDBBind(df_cluster_core,
             mol, coords = coord_getter_2(file_location, setting='mol2')
         elif structure_file_format == 'pdb':
             mol, coords = coord_getter_2(file_location, setting='pdb')
-        elif structure_file_format == 'smiles': # no file to read!
-            mol, coords, failed = coord_creator(smiles)
+        elif structure_file_format == 'smiles':  # no file to read!
+            mol, coords = coord_creator(smiles)
 
         # Track connected components, loops, and voids
         homology_dimensions = [0, 1, 2]
@@ -609,7 +610,7 @@ def make_topological_features_from_deepchem(my_dataset,
     pipe = make_pipeline(num_of_features)
 
     ############# DAS LOOP! Makes topological features ##########
-
+    invalid_smiles_strings = []
     for mol_idx in selected_range:
         if not mol_idx in skip_molecules:
             print('Got to Molecule no. ', mol_idx)
@@ -621,17 +622,19 @@ def make_topological_features_from_deepchem(my_dataset,
                 # data is in files somewhere we make the rdkit mol object
                 if not file_type == 'smiles':
                     file_location = os.path.join(data_dir,
-                                             pdb_list[mol_idx],
-                                             pdb_list[mol_idx] + '_' + input_file_end_name + '.' + file_type)
+                                                 pdb_list[mol_idx],
+                                                 pdb_list[mol_idx] + '_' + input_file_end_name + '.' + file_type)
                 if file_type == 'mol2':
                     mol, coords = coord_getter_2(file_location, setting='mol2')
                 elif file_type == 'pdb':
                     mol, coords = coord_getter_2(file_location, setting='pdb')
                 elif file_type == 'smiles':
-                    mol, coords, failed = coord_creator(mol)
-            if failed:
-                skip_molecules = skip_molecules.append(mol_idx)
-                continue
+                    try:
+                        mol, coords = coord_creator(mol)
+                    except ValueError as e:
+                        print(e)
+                        invalid_smiles_strings.append(mol_idx)
+                        continue
 
             # Track connected components, loops, and voids
             homology_dimensions = [0, 1, 2]
@@ -655,7 +658,8 @@ def make_topological_features_from_deepchem(my_dataset,
 
         topol_feat_mat = np.array(topol_feat_list)
 
-    return topol_feat_list, topol_feat_mat, skip_molecules
+    return topol_feat_list, topol_feat_mat, invalid_smiles_strings
+
 
 ######################### functions to do experiments ! ##########################
 
@@ -694,42 +698,43 @@ def run_repeated_RF_tests(
 
     return (train_scores, test_scores, model)
 
-def create_keras_model(size_of_output = 1):
+
+def create_keras_model(size_of_output=1):
     """Makes a simple NN for testing"""
     keras_model = tf.keras.Sequential([
-    tf.keras.layers.Dense(1000, activation='relu'),
-    tf.keras.layers.Dropout(rate=0.5),
-    tf.keras.layers.Dense(500, activation='relu'),
-    tf.keras.layers.Dropout(rate=0.5),
-    tf.keras.layers.Dense(500, activation='relu'),
-    tf.keras.layers.Dropout(rate=0.3),
-    tf.keras.layers.Dense(500, activation='relu'),
-    #tf.keras.layers.Dropout(rate=0.5),
-    tf.keras.layers.Dense(200, activation='relu'),
-    #tf.keras.layers.Dropout(rate=0.5),
-    tf.keras.layers.Dense(size_of_output)
+        tf.keras.layers.Dense(1000, activation='relu'),
+        tf.keras.layers.Dropout(rate=0.5),
+        tf.keras.layers.Dense(500, activation='relu'),
+        tf.keras.layers.Dropout(rate=0.5),
+        tf.keras.layers.Dense(500, activation='relu'),
+        tf.keras.layers.Dropout(rate=0.3),
+        tf.keras.layers.Dense(500, activation='relu'),
+        # tf.keras.layers.Dropout(rate=0.5),
+        tf.keras.layers.Dense(200, activation='relu'),
+        # tf.keras.layers.Dropout(rate=0.5),
+        tf.keras.layers.Dense(size_of_output)
     ])
     return keras_model
 
-def run_repeated_keras_NN_tests(
-    X_data,
-    y_data,
-    keras_model=None,
-    num_of_repeats=10,
-    num_of_epochs=100,
-    test_set_size=int(num_of_molecules*0.1),
-    validate_set_size=int(num_of_molecules*0.1)):
 
+def run_repeated_keras_NN_tests(
+        X_data,
+        y_data,
+        keras_model=None,
+        num_of_repeats=10,
+        num_of_epochs=100,
+        test_set_size=int(num_of_molecules * 0.1),
+        validate_set_size=int(num_of_molecules * 0.1)):
     num_of_proteins = len(X_data)
     size_of_output = len(y_data.columns)
 
-    train_scores_r2=[]
-    test_scores_r2=[]
-    train_scores_rmse=[]
-    test_scores_rmse=[]
+    train_scores_r2 = []
+    test_scores_r2 = []
+    train_scores_rmse = []
+    test_scores_rmse = []
 
     for trial in range(num_of_repeats):
-        (train_X_data, ###
+        (train_X_data,  ###
          train_y_data,
          test_X_data,
          test_y_data,
@@ -741,8 +746,8 @@ def run_repeated_keras_NN_tests(
             validate_set_size=validate_set_size,
             verbose=True)
         # put data into a dataset for input to keras
-        train_dataset=dc.data.NumpyDataset(train_X_data, train_y_data)
-        test_dataset=dc.data.NumpyDataset(test_X_data, test_y_data)
+        train_dataset = dc.data.NumpyDataset(train_X_data, train_y_data)
+        test_dataset = dc.data.NumpyDataset(test_X_data, test_y_data)
         # choose metric(s)
         metric1 = dc.metrics.Metric(dc.metrics.pearson_r2_score)
         metric2 = dc.metrics.Metric(dc.metrics.rms_score)
@@ -767,10 +772,11 @@ def run_repeated_keras_NN_tests(
 
     print(train_scores_r2)
     print(test_scores_r2)
-    out=(train_scores_r2, test_scores_r2, train_scores_rmse, test_scores_rmse, keras_model)
+    out = (train_scores_r2, test_scores_r2, train_scores_rmse, test_scores_rmse, keras_model)
     return out
 
-        # make a model for use
+    # make a model for use
+
 
 def create_and_merge_dc_topol_features(my_dataset,
                                        num_of_molecules=5,
@@ -787,22 +793,23 @@ def create_and_merge_dc_topol_features(my_dataset,
     # grab ligands
     print('Doing the molecules...')
 
-    topol_feat_list, topol_feat_mat, skip_molecules = make_topological_features_from_deepchem(my_dataset,
-                                                                                file_type=file_type,
-                                                                                verbose=False,
-                                                                                num_of_molecules=num_of_molecules,
-                                                                                num_of_features=num_of_features,
-                                                                                data_dir=data_dir,
-                                                                                do_specified_range=do_specified_range,
-                                                                                selected_range=selected_range,
-                                                                                skip_molecules=skip_molecules)
+    topol_feat_list, topol_feat_mat, invalid_smiles_strings = make_topological_features_from_deepchem(my_dataset,
+                                                                                                      file_type=file_type,
+                                                                                                      verbose=False,
+                                                                                                      num_of_molecules=num_of_molecules,
+                                                                                                      num_of_features=num_of_features,
+                                                                                                      data_dir=data_dir,
+                                                                                                      do_specified_range=do_specified_range,
+                                                                                                      selected_range=selected_range,
+                                                                                                      skip_molecules=skip_molecules)
 
     # numpy version of data
-    np.savetxt(os.path.join(save_dir,"test.txt"), topol_feat_mat)
+    np.savetxt(os.path.join(save_dir, "test.txt"), topol_feat_mat)
     if verbose:
         print(topol_feat_mat)
         print(topol_feat_list)
-    return (topol_feat_list, topol_feat_mat, skip_molecules)
+    return topol_feat_list, topol_feat_mat, invalid_smiles_strings
+
 
 def temp_write_topol_data(
         f,
@@ -821,22 +828,25 @@ def temp_write_topol_data(
         this_batch = min(batch_size, remaining)
         this_range = list(range(current_ptr, current_ptr + this_batch))
 
-        out_list, y_new, skip_molecules = create_and_merge_dc_topol_features(my_dataset,
-                                                             num_of_molecules=5, # overwritten by do_specified_Range
-                                                             num_of_features=num_of_topol_features,
-                                                             data_dir=data_dir,
-                                                             do_specified_range=do_specified_range,
-                                                             selected_range=this_range,
-                                                             file_type=file_type,
-                                                             verbose=False,
-                                                             skip_molecules=skip_molecules)
+        out_list, y_new, invalid_smiles_strings = \
+            create_and_merge_dc_topol_features(my_dataset,
+                                               num_of_molecules=5,
+                                               # overwritten by do_specified_Range
+                                               num_of_features=num_of_topol_features,
+                                               data_dir=data_dir,
+                                               do_specified_range=do_specified_range,
+                                               selected_range=this_range,
+                                               file_type=file_type,
+                                               verbose=False,
+                                               skip_molecules=skip_molecules)
 
         for _list in out_list:
             row = ','.join([str(i) for i in _list])
             f.write(row + '\n')
         remaining -= this_batch
         current_ptr += this_batch
-    return skip_molecules
+    return invalid_smiles_strings
+
 
 def copy_targets_into_csv(
         y_fh,
@@ -852,6 +862,7 @@ def copy_targets_into_csv(
         y_fh.write(row + '\n')
     return
 
+
 def load_all_hdf5(fh,
                   num_of_rows,
                   column_headers):
@@ -859,16 +870,16 @@ def load_all_hdf5(fh,
     fh = file handle
     num_of_rows = number of rows of data (i.e. molecules)
     column_headers into the hdf5 file"""
-    data = np.zeros((num_of_rows,len(column_headers)))
+    data = np.zeros((num_of_rows, len(column_headers)))
     for key_num in range(len(column_headers)):
         key = column_headers[key_num]
-        #print(key_num)
-        d=fh[key]
-        data[:,key_num] = d
+        # print(key_num)
+        d = fh[key]
+        data[:, key_num] = d
     return data
 
-def generate_structure_from_smiles(smiles):
 
+def generate_structure_from_smiles(smiles):
     # Generate a 3D structure from smiles
 
     mol = rdkit.Chem.MolFromSmiles(smiles)
@@ -881,12 +892,13 @@ def generate_structure_from_smiles(smiles):
     coordinates = conformer.GetPositions()
     coordinates = np.array(coordinates)
 
-    #atoms = get_atoms(mol)
+    # atoms = get_atoms(mol)
 
     return coordinates
 
+
 def smiles_to_persistence_diagrams(smiles):
-    coords=generate_structure_from_smiles(smiles)
+    coords = generate_structure_from_smiles(smiles)
     # makes a point cloud version of the structure
     # there are no atom types
 
@@ -900,13 +912,13 @@ def smiles_to_persistence_diagrams(smiles):
         n_jobs=6,
         collapse_edges=True,
     )
-    reshaped_coords=coords[None, :, :]
+    reshaped_coords = coords[None, :, :]
     diagrams_basic = persistence.fit_transform(reshaped_coords)
     return coords, diagrams_basic
 
-def generate_structure_from_pdb(data_dir,
-                               filename):
 
+def generate_structure_from_pdb(data_dir,
+                                filename):
     # Generate a 3D structure from pdb file
 
     mol = rdkit.Chem.rdmolfiles.MolFromPDBFile(
@@ -920,9 +932,10 @@ def generate_structure_from_pdb(data_dir,
     coordinates = conformer.GetPositions()
     coordinates = np.array(coordinates)
 
-    #atoms = get_atoms(mol)
+    # atoms = get_atoms(mol)
 
     return coordinates
+
 
 def coords_to_persistence_diagrams(coords):
     # makes a point cloud version of the structure
@@ -938,15 +951,17 @@ def coords_to_persistence_diagrams(coords):
         n_jobs=6,
         collapse_edges=True,
     )
-    reshaped_coords=coords[None, :, :]
+    reshaped_coords = coords[None, :, :]
     diagrams_basic = persistence.fit_transform(reshaped_coords)
     return coords, diagrams_basic
+
 
 def do_transform(transformers, dataset):
     # does deepchem transforms properly on np datasets
     for transformer in transformers:
         dataset = transformer.transform(dataset)
     return dataset
+
 
 def rotation_with_quaternion(Xx, Yy, Zz, coords, verbose=False):
     """Xx : angle around x axis
@@ -957,10 +972,11 @@ def rotation_with_quaternion(Xx, Yy, Zz, coords, verbose=False):
 
     # makes a quaternion
     r = R.from_euler('zyx',
-    [Zz, Yy, Xx], degrees=True)
+                     [Zz, Yy, Xx], degrees=True)
     if verbose:
         print(f'Quaternion is {r.as_quat()}')
     return r.apply(coords)
+
 
 def deepchem_dataset_dictionaries():
     """returns useful intel about deepchem in this order:
@@ -970,62 +986,64 @@ def deepchem_dataset_dictionaries():
     metric types is the metric used per dataset"""
 
     loaders = {
-          'bace_c': dc.molnet.load_bace_classification,
-          'bace_r': dc.molnet.load_bace_regression,
-          'bbbp': dc.molnet.load_bbbp,
-          'clearance': dc.molnet.load_clearance,
-          'clintox': dc.molnet.load_clintox,
-          'delaney': dc.molnet.load_delaney,
-          'hiv': dc.molnet.load_hiv,
-          'hopv': dc.molnet.load_hopv,
-          'kaggle': dc.molnet.load_kaggle,
-          'kinase': dc.molnet.load_kinase,
-          'lipo': dc.molnet.load_lipo,
-          'muv': dc.molnet.load_muv,
-          'nci': dc.molnet.load_nci,
-          'pcba': dc.molnet.load_pcba,
-     #     'pcba_146': dc.molnet.load_pcba_146,
-     #     'pcba_2475': dc.molnet.load_pcba_2475,
-          'ppb': dc.molnet.load_ppb,
-          'qm7': dc.molnet.load_qm7,
-    #      'qm7b': dc.molnet.load_qm7b_from_mat,
-          'qm8': dc.molnet.load_qm8,
-          'qm9': dc.molnet.load_qm9,
-          'sampl': dc.molnet.load_sampl,
-          'sider': dc.molnet.load_sider,
-          'thermosol': dc.molnet.load_thermosol,
-          'tox21': dc.molnet.load_tox21,
-          'toxcast': dc.molnet.load_toxcast
-  }
+        'bace_c': dc.molnet.load_bace_classification,
+        'bace_r': dc.molnet.load_bace_regression,
+        'bbbp': dc.molnet.load_bbbp,
+        'clearance': dc.molnet.load_clearance,
+        'clintox': dc.molnet.load_clintox,
+        'delaney': dc.molnet.load_delaney,
+        'hiv': dc.molnet.load_hiv,
+        'hopv': dc.molnet.load_hopv,
+        'kaggle': dc.molnet.load_kaggle,
+        'kinase': dc.molnet.load_kinase,
+        'lipo': dc.molnet.load_lipo,
+        'muv': dc.molnet.load_muv,
+        'nci': dc.molnet.load_nci,
+        'pcba': dc.molnet.load_pcba,
+        #     'pcba_146': dc.molnet.load_pcba_146,
+        #     'pcba_2475': dc.molnet.load_pcba_2475,
+        'ppb': dc.molnet.load_ppb,
+        'qm7': dc.molnet.load_qm7,
+        #      'qm7b': dc.molnet.load_qm7b_from_mat,
+        'qm8': dc.molnet.load_qm8,
+        'qm9': dc.molnet.load_qm9,
+        'sampl': dc.molnet.load_sampl,
+        'sider': dc.molnet.load_sider,
+        'thermosol': dc.molnet.load_thermosol,
+        'tox21': dc.molnet.load_tox21,
+        'toxcast': dc.molnet.load_toxcast
+    }
 
-    classification_datasets = ['bace_c', 'bbbp', 'clintox', 'hiv', 'muv', 'pcba', 'pcba_146', 'pcba_2475', 'sider', 'tox21', 'toxcast']
-    regression_datasets = ['bace_r', 'clearance', 'delaney', 'hopv', 'kaggle', 'lipo', 'nci', 'ppb', 'qm7', 'qm7b', 'qm8', 'qm9', 'sampl', 'thermosol']
+    classification_datasets = ['bace_c', 'bbbp', 'clintox', 'hiv', 'muv', 'pcba', 'pcba_146', 'pcba_2475', 'sider',
+                               'tox21', 'toxcast']
+    regression_datasets = ['bace_r', 'clearance', 'delaney', 'hopv', 'kaggle', 'lipo', 'nci', 'ppb', 'qm7', 'qm7b',
+                           'qm8', 'qm9', 'sampl', 'thermosol']
 
     metric_types = {'bace_c': dc.metrics.roc_auc_score,
-          'bace_r': dc.metrics.rms_score,
-          'bbbp': dc.metrics.roc_auc_score,
-          'clearance': dc.metrics.rms_score,
-          'clintox': dc.metrics.roc_auc_score,
-          'delaney': dc.metrics.mae_score,
-          'hiv': dc.metrics.roc_auc_score,
-          'hopv': dc.metrics.mae_score,
-          'kaggle': dc.metrics.mae_score,
-          'lipo': dc.metrics.mae_score,
-          'muv': dc.metrics.roc_auc_score,
-          'nci': dc.metrics.mae_score,
-          'pcba': dc.metrics.prc_auc_score,
-          'pcba_146': dc.metrics.prc_auc_score,
-          'pcba_2475': dc.metrics.prc_auc_score,
-          'ppb': dc.metrics.mae_score,
-          'qm7': dc.metrics.mae_score,
-          'qm7b': dc.metrics.mae_score,
-          'qm8': dc.metrics.mae_score,
-          'qm9': dc.metrics.mae_score,
-          'sampl': dc.metrics.rms_score,
-          'sider': dc.metrics.roc_auc_score,
-          'thermosol': dc.metrics.rms_score,
-          'tox21': dc.metrics.roc_auc_score,
-          'toxcast': dc.metrics.roc_auc_score}
+                    'bace_r': dc.metrics.rms_score,
+                    'bbbp': dc.metrics.roc_auc_score,
+                    'clearance': dc.metrics.rms_score,
+                    'clintox': dc.metrics.roc_auc_score,
+                    'delaney': dc.metrics.mae_score,
+                    'hiv': dc.metrics.roc_auc_score,
+                    'hopv': dc.metrics.mae_score,
+                    'kaggle': dc.metrics.mae_score,
+                    'lipo': dc.metrics.mae_score,
+                    'muv': dc.metrics.roc_auc_score,
+                    'nci': dc.metrics.mae_score,
+                    'pcba': dc.metrics.prc_auc_score,
+                    'pcba_146': dc.metrics.prc_auc_score,
+                    'pcba_2475': dc.metrics.prc_auc_score,
+                    'ppb': dc.metrics.mae_score,
+                    'qm7': dc.metrics.mae_score,
+                    'qm7b': dc.metrics.mae_score,
+                    'qm8': dc.metrics.mae_score,
+                    'qm9': dc.metrics.mae_score,
+                    'sampl': dc.metrics.rms_score,
+                    'sider': dc.metrics.roc_auc_score,
+                    'thermosol': dc.metrics.rms_score,
+                    'tox21': dc.metrics.roc_auc_score,
+                    'toxcast': dc.metrics.roc_auc_score}
     return loaders, classification_datasets, regression_datasets, metric_types
 
 
@@ -1049,6 +1067,7 @@ def do_transform(transformers, dataset):
     for transformer in transformers:
         dataset = transformer.transform(dataset)
     return dataset
+
 
 def get_them_metrics(
         model,
@@ -1245,6 +1264,7 @@ def no_transform_topol_regression_experiment(
                                         'te_mse', 'te_r2', 'te_mae', 'te_rmse'])
     return pd_out
 
+
 def topol_classification_experiment(
         dataset,
         transformers,
@@ -1258,9 +1278,9 @@ def topol_classification_experiment(
         patience=15,
         n_classes=2,
         metric_labels=['balanced_accuracy_score',
-                 'prc_auc_score',
-                 'roc_auc_score',
-                 'f1_score']):
+                       'prc_auc_score',
+                       'roc_auc_score',
+                       'f1_score']):
     """runs repeated training with topol input features
     uses default multitask regressor class
     does splitting and transforming
@@ -1299,7 +1319,6 @@ def topol_classification_experiment(
         print(f"Testing with {len(test_dataset.y)} points")
         print(f"Total dataset size: {len(train_dataset.y) + len(valid_dataset.y) + len(test_dataset.y)}")
 
-
         # for later
         datasets = [train_dataset, valid_dataset, test_dataset]
         # actual model here
@@ -1330,6 +1349,7 @@ def topol_classification_experiment(
                                         'val_bal_acc', 'val_prc_auc', 'val_roc_auc', 'val_f1',
                                         'te_bal_acc', 'te_prc_auc', 'te_roc_auc', 'te_f1'])
     return pd_out
+
 
 def dataset_selector(
         setting,
@@ -1512,7 +1532,6 @@ def deepchem_regression_experiment(
     out = []
     Splitter = split_function
 
-
     train_scores, validate_scores, test_scores = [], [], []
     print(f'Metric selected is {metric_labels[metric_selector]}')
     for i in range(num_repeats):
@@ -1522,12 +1541,12 @@ def deepchem_regression_experiment(
             feat_setting,
             loader)
 
-        dataset=dataset[0] # a tuple of a single dataset
+        dataset = dataset[0]  # a tuple of a single dataset
         train_dataset, valid_dataset, test_dataset = Splitter.train_valid_test_split(
-                        dataset=dataset,
-                        frac_train=frac_train,
-                        frac_valid=frac_valid,
-                        frac_test=frac_test)
+            dataset=dataset,
+            frac_train=frac_train,
+            frac_valid=frac_valid,
+            frac_test=frac_test)
         datasets = (train_dataset, valid_dataset, test_dataset)
         print(f"Training with {len(train_dataset.y)} points")
         print(f"Validation with {len(valid_dataset.y)} points")
@@ -1566,6 +1585,7 @@ def deepchem_regression_experiment(
                                         'val_mse', 'val_r2', 'val_mae', 'val_rmse',
                                         'te_mse', 'te_r2', 'te_mae', 'te_rmse'])
     return pd_out
+
 
 def deepchem_classification_experiment(
         metrics,
@@ -1610,7 +1630,6 @@ def deepchem_classification_experiment(
     out = []
     Splitter = split_function
 
-
     train_scores, validate_scores, test_scores = [], [], []
     print(f'Metric selected is {metric_labels[metric_selector]}')
     for i in range(num_repeats):
@@ -1620,12 +1639,12 @@ def deepchem_classification_experiment(
             feat_setting,
             loader)
 
-        dataset=dataset[0] # a tuple of a single dataset
+        dataset = dataset[0]  # a tuple of a single dataset
         train_dataset, valid_dataset, test_dataset = Splitter.train_valid_test_split(
-                        dataset=dataset,
-                        frac_train=frac_train,
-                        frac_valid=frac_valid,
-                        frac_test=frac_test)
+            dataset=dataset,
+            frac_train=frac_train,
+            frac_valid=frac_valid,
+            frac_test=frac_test)
         datasets = (train_dataset, valid_dataset, test_dataset)
         print(f"Training with {len(train_dataset.y)} points")
         print(f"Validation with {len(valid_dataset.y)} points")
@@ -1669,23 +1688,33 @@ def deepchem_classification_experiment(
                                         'te_bal_acc', 'te_prc_auc', 'te_roc_auc', 'te_f1'])
     return pd_out
 
+
 def remove_specific_points(y_values, specific_points):
     """removes specific lines in the .csv file
     presumably because rdkit fails on them
     specific_points : lines to remove, 0 indexed!!!!"""
     Failures = specific_points
-    new_y = np.zeros(len(y_values) - len(Failures)).reshape((-1, 1))
-    count=0
+    num_output_tasks=len(y_values[3])
+    if num_output_tasks == 1:
+        # single output task
+        new_y = np.zeros(len(y_values) - len(Failures)).reshape((-1, 1))
+    else:
+        new_y = np.zeros((len(y_values) - len(Failures), num_output_tasks))
+    count = 0
     for i in range(len(y_values)):
-        #print(f"i: {i}")
+        # print(f"i: {i}")
         if i in Failures:
-            print(f"Failure: i is {i}, y_values[i] is {y_values[i]}" )
+            print(f"Failure: i is {i}, y_values[i] is {y_values[i]}")
         else:
-        #    print(f"count: {count}")
-        #    print(dataset.y[i])
-            new_y[count]=y_values[i]
+            #    print(f"count: {count}")
+            #    print(dataset.y[i])
+            if num_output_tasks == 1:
+                new_y[count] = y_values[i]
+            else:
+                new_y[count] = y_values[i]
             count = count + 1
     return new_y
+
 
 def remove_specific_points_str(y_values, specific_points):
     """removes specific lines in the .csv file
@@ -1694,24 +1723,25 @@ def remove_specific_points_str(y_values, specific_points):
     does strings"""
     Failures = specific_points
     new_y = []
-    count=0
+    count = 0
     for i in range(len(y_values)):
-        #print(f"i: {i}")
+        # print(f"i: {i}")
         if i in Failures:
-            print(f"Failure: i is {i}, y_values[i] is {y_values[i]}" )
+            print(f"Failure: i is {i}, y_values[i] is {y_values[i]}")
         else:
-            #print(f"count: {count}")
-            #print(y_values[i])
+            # print(f"count: {count}")
+            # print(y_values[i])
             new_y.append(y_values[i])
             count = count + 1
     return new_y
 
+
 def reload_experiment_dataframes(
-    list_of_filenames,
-    exclusion_list=[]):
+        list_of_filenames,
+        exclusion_list=[]):
     """reloads csv files into a list of dataframes"""
 
-    list_of_dataframes= []
+    list_of_dataframes = []
     for file_no in range(len(list_of_filenames)):
         if not file_no in exclusion_list:
             this_file = list_of_filenames[file_no] + '.csv'
@@ -1719,7 +1749,7 @@ def reload_experiment_dataframes(
             list_of_dataframes.append(
                 pd.read_csv(
                     os.path.join(
-                        results_dir,this_file)))
+                        results_dir, this_file)))
     return list_of_dataframes
 
 

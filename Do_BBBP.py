@@ -32,11 +32,12 @@ print(f'Using dataset {dataset_name}')
 is_classification = True
 current_ptr = 0
 
-make_dataset=False # whether to recalc the dataset
-make_hdf5 = True
+make_dataset=True # whether to recalc the dataset
+make_hdf5 = False
 
 do_specified_range = True
-selected_range = [x for x in range(0,2049)]
+# selected_range must be contiguous
+selected_range = [x for x in range(1998, 2049)]
 num_of_molecules_to_do = len(selected_range)
 if do_specified_range:
     current_ptr = min(selected_range)
@@ -49,8 +50,8 @@ else:
 #num_of_molecules_to_do = len(selected_range)
 ###########################################################################
 
-#BBBP has some molecules that cannot be featurised :(
-Failures = [59, 61, 179, 391, 614, 642, 645, 646, 647, 648, 649, 685, 1075, 1998] # add 179 tothis
+# BBBP has some molecules that cannot be featurised :(
+Failures = [59, 61, 179, 391, 614, 642, 645, 646, 647, 648, 649, 685, 1075, 1998]
 
 save_dir=r'F:\Nextcloud\science\Datasets\topol_datasets'
 results_dir=r"F:\Nextcloud\science\results\topology_and_graphs\d_" + dataset_name
@@ -59,8 +60,6 @@ out_file_name=dataset_name + '_topological_features.hdf5'
 data_dir=r'F:\Nextcloud\science\Datasets'
 x_data_file_name = 'x_data_' + dataset_name + '.csv'
 y_data_file_name = 'y_data_' + dataset_name + '.csv'
-
-
 
 loaders, classification_datasets, regression_datasets, metric_types = h.deepchem_dataset_dictionaries()
 loader = loaders[dataset_name]
@@ -75,7 +74,7 @@ feature_name_list = ['pers_S_1', 'pers_S_2', 'pers_S_3',
                     'pers_img_1', 'pers_img_2', 'pers_img_3']
 num_of_topol_features = len(feature_name_list)
 
-#### Load data with no featurization
+# Load data with no featurization
 
 # This loads the data without doing any featurization
 # also does not splitting!
@@ -89,8 +88,6 @@ num_of_molecules: int = len(dataset)
 
 # RUN THIS
 #make_dataset = False
-
-
 
 batch_size = 10
 if testing:
@@ -111,18 +108,20 @@ if make_dataset:
             # train
             if not testing:
                 remaining = len(dataset)
-            h.temp_write_topol_data(
-                f,
-                remaining=remaining,
-                current_ptr=current_ptr,
-                my_dataset=dataset,
-                num_of_topol_features=num_of_topol_features,
-                do_specified_range=do_specified_range,
-                batch_size=batch_size,
-                data_dir=data_dir,
-                file_type='smiles',
-                skip_molecules=Failures
-            )
+            invalid_smiles_strings = \
+                h.temp_write_topol_data(
+                    f,
+                    remaining=remaining,
+                    current_ptr=current_ptr,
+                    my_dataset=dataset,
+                    num_of_topol_features=num_of_topol_features,
+                    do_specified_range=do_specified_range,
+                    batch_size=batch_size,
+                    data_dir=data_dir,
+                    file_type='smiles',
+                    skip_molecules=Failures
+                )
+            Failures.extend(invalid_smiles_strings)
             if not is_classification:
                 untransformed_train_y = transformers[0].untransform(dataset.y)
             else:
@@ -137,7 +136,7 @@ if make_dataset:
 
     f.close()
 
-#sys.exit(0)
+sys.exit(0)
 ##################################################################################################################
 #                               load data                                                                        #
 ##################################################################################################################
