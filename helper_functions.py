@@ -1883,3 +1883,57 @@ def method_comparison_plotter(
     plt.xlabel(x_label)
     plt.savefig(os.path.join(results_dir, filename + rider))
     return ax, means, stds
+
+
+def join_featurisation_vectors(
+        dataset_1,
+        dataset_2,
+        smiles_list_1=[],
+        smiles_list_2=[]):
+    """sticks together two featurisation vectors
+    dataset_1 = lefthand dataset
+    dataset_2 = righthand_dataset
+    smiles_list_1 = lefthand dataset
+    smiles_list_2 = righthand dataset
+    N.B. expects datasets to a list of lists or 2D nparray
+    i.e. x samples by y features
+ """
+    new_X_data = []
+    if len(dataset_2) == len(dataset_1):
+        #  datasets have the same number
+        for i in range(len(dataset_2)):
+            # this grabs the deepchem features and copies it
+            # remove the flatten
+            deepchem_feature = [float(x) for x in dataset_1[i]]
+            #        deepchem_feature = [float(x) for x in dataset_1[i]]
+            # this grabs the tdaf and copies it
+            tdaf_feature = [float(x) for x in dataset_2[i]]
+            # this sticks them together
+            new_X_data.append(np.array(deepchem_feature + tdaf_feature))
+    else:
+        # doing smiles comparison
+        print('Datasets are different sizes')
+        print('Using smiles strings to sort this out')
+        # frist check change type from bytes
+        if type(smiles_list_1[3]) == bytes:
+            smiles_list_1 = [i.decode() for i in smiles_list_1]
+        if type(smiles_list_2[3]) == bytes:
+            smiles_list_2 = [i.decode() for i in smiles_list_2]
+        for i in range(len(dataset_2)):
+            # this grabs the deepchem features and copies it
+            # remove the flatten
+            try:
+                i_new = smiles_list_1.index(smiles_list_2[i])
+                # print(smiles_list_2[i])
+                # print(smiles_list_1[i_new])
+            except:
+                continue
+
+            deepchem_feature = [float(x) for x in dataset_1[i_new]]
+            #   deepchem_feature = [float(x) for x in dataset_1[i]]
+            # this grabs the tdaf and copies it
+            tdaf_feature = [float(x) for x in dataset_2[i]]
+            # this sticks them together
+            new_X_data.append(np.array(deepchem_feature + tdaf_feature))
+
+    return new_X_data
