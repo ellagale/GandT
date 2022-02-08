@@ -45,31 +45,33 @@ metric_dict={'qm7': deepchem.metrics.mae_score,
              'lipo': deepchem.metrics.rms_score,
              'pdbbind': deepchem.metrics.rms_score}
 
-for dataset in regression_datasets:
-    for model in model_list_regression:
-        metric=metric_dict[dataset]
-        try:
-            run_benchmark.run_benchmark([dataset],
-                  model,
-                  split=None,
-                  metric=metric, # use errors not r2
-                  direction=False, # want to minimise the error
-                  featurizer=None, # use default
-                  n_features=0,
-                  out_path='.',
-                  hyper_parameters=None, # use defaults
-                  hyper_param_search=False, # use defaults
-                  max_iter=20,
-                  search_range=2,
-                  test=True,
-                  reload=True,
-                  seed=123)
-        except:
-            continue
+run_regression=False
+if run_regression==True:
+    for dataset in regression_datasets:
+        for model in model_list_regression:
+            metric=metric_dict[dataset]
+            try:
+                run_benchmark.run_benchmark([dataset],
+                      model,
+                      split=None,
+                      metric=metric, # use errors not r2
+                      direction=False, # want to minimise the error
+                      featurizer=None, # use default
+                      n_features=0,
+                      out_path='.',
+                      hyper_parameters=None, # use defaults
+                      hyper_param_search=False, # use defaults
+                      max_iter=20,
+                      search_range=2,
+                      test=True,
+                      reload=True,
+                      seed=123)
+            except:
+                continue
 
 for dataset in classification_datasets:
     for model in model_list_classification:
-        metric=metric_dict[dataset]
+        #metric=metric_dict[dataset]
         print(f"dataset:\t{dataset}, model\t{model}")
         try:
             run_benchmark.run_benchmark([dataset],

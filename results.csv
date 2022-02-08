@@ -29,3 +29,4 @@ qm9,None,regression,tf_regression_ft,metric-1,train,26.919377010327832,valid,27.
 qm9,None,regression,rf_regression,metric-1,train,9.74572829794205,valid,25.725383233379684,test,25.591491117377,time_for_running,123035.97975707054
 qm9,None,regression,graphconvreg,metric-1,train,20.474323711861974,valid,23.833032136198046,test,23.90183445273962,time_for_running,22290.552675247192
 qm9,None,regression,dtnn,metric-1,train,23.532279410780067,valid,27.043085766151663,test,26.944307616743767,time_for_running,51368.58044028282
+qm9,None,regression,textcnn_regression,metric-1,train,17.909700554324846,valid,22.537585954026763,test,22.502718332420432,time_for_running,122253.45783233643
