@@ -1919,21 +1919,21 @@ def join_featurisation_vectors(
             smiles_list_1 = [i.decode() for i in smiles_list_1]
         if type(smiles_list_2[3]) == bytes:
             smiles_list_2 = [i.decode() for i in smiles_list_2]
+
+        print(smiles_list_1[3])
+        print(smiles_list_2[3])
+        print(smiles_list_1[3] == smiles_list_2[3])
+        new_X_data = []
         for i in range(len(dataset_2)):
             # this grabs the deepchem features and copies it
             # remove the flatten
-            try:
-                i_new = smiles_list_1.index(smiles_list_2[i])
-                # print(smiles_list_2[i])
-                # print(smiles_list_1[i_new])
-            except:
-                continue
-
-            deepchem_feature = [float(x) for x in dataset_1[i_new]]
-            #   deepchem_feature = [float(x) for x in dataset_1[i]]
-            # this grabs the tdaf and copies it
-            tdaf_feature = [float(x) for x in dataset_2[i]]
-            # this sticks them together
-            new_X_data.append(np.array(deepchem_feature + tdaf_feature))
+            for i_1 in range(len(dataset_1)):
+                if smiles_list_1[i_1] == smiles_list_2[i]:
+                    # i_new=smiles_list_1.index(smiles_list_2[i])
+                    # print(smiles_list_2[i])
+                    # print(smiles_list_1[i_1])
+                    deepchem_feature = [float(x) for x in dataset_1[i_1]]
+                    tdaf_feature = [float(x) for x in dataset_2[i]]
+                    new_X_data.append(np.array(deepchem_feature + tdaf_feature))
 
     return new_X_data
