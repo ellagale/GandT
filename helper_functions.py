@@ -1885,9 +1885,13 @@ def method_comparison_plotter(
     return ax, means, stds
 
 
+
+
+
 def join_featurisation_vectors(
         dataset_1,
         dataset_2,
+        dataset_2_y,
         smiles_list_1=[],
         smiles_list_2=[]):
     """sticks together two featurisation vectors
@@ -1924,6 +1928,8 @@ def join_featurisation_vectors(
         print(smiles_list_2[3])
         print(smiles_list_1[3] == smiles_list_2[3])
         new_X_data = []
+        new_y_data = []
+        new_smiles_list = []
         for i in range(len(dataset_2)):
             # this grabs the deepchem features and copies it
             # remove the flatten
@@ -1935,5 +1941,9 @@ def join_featurisation_vectors(
                     deepchem_feature = [float(x) for x in dataset_1[i_1]]
                     tdaf_feature = [float(x) for x in dataset_2[i]]
                     new_X_data.append(np.array(deepchem_feature + tdaf_feature))
+                    new_y_data.append(np.array(dataset_2_y[i]))
+                    new_smiles_list.append(smiles_list_2[i])
 
-    return new_X_data
+    return new_X_data, new_y_data, new_smiles_list
+
+
