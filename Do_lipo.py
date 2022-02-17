@@ -32,11 +32,11 @@ print(f'Using dataset {dataset_name}')
 is_classification = False
 current_ptr = 0
 
-make_dataset=True # whether to recalc the dataset
+make_dataset=True # whether to recalc the .csv dataset
 make_hdf5 = True
 
 do_specified_range = True
-selected_range = [x for x in range(3590,4199)] # 4201
+selected_range = [x for x in range(4198)] # 4201
 num_of_molecules_to_do = len(selected_range)
 if do_specified_range:
     current_ptr = min(selected_range)
@@ -141,7 +141,7 @@ if make_dataset:
 
     f.close()
 
-sys.exit(0)
+#sys.exit(0)
 ##################################################################################################################
 #                               load data                                                                        #
 ##################################################################################################################
