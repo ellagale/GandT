@@ -94,7 +94,10 @@ def read_in_PDBBind_data(
         data_dir,
         name_file_name="INDEX_core_name.2013",
         data_file_name="INDEX_core_data.2013",
-        cluster_file_name="INDEX_core_cluster.2013"):
+        cluster_file_name="INDEX_core_cluster.2013",
+        name_column_list_name = ["PDB_code", "release_year", "EC_number", "protein_name"],
+        data_column_list_name=["PDB_code","resolution","release_year","-logKd/Ki","Kd/Ki","reference","ligand name"],
+        cluster_column_list_name = ['PDB_code','resolution', 'release_year','-logKd/Ki','original_Kd/Ki','cluster ID']):
     # if True:
 
     """script to read into the data for PDBBind"""
@@ -104,7 +107,6 @@ def read_in_PDBBind_data(
         ## This reads in the pdb codes for each protein in the core dataset
         fh = open(os.path.join(data_dir, name_file_name), 'r')
         c = 0
-        column_list_name = ["PDB_code", "release_year", "EC_number", "protein_name"]
         lines = []
         for line in fh.readlines():
             if not line.startswith('#'):
@@ -122,7 +124,7 @@ def read_in_PDBBind_data(
                     # labels = line
 
         fh.close()
-        df_index_core = pd.DataFrame(lines, columns=column_list_name)
+        df_index_core = pd.DataFrame(lines, columns=name_column_list_name)
         print('Sample of name file:')
         print(df_index_core.head())
     else:
@@ -133,13 +135,6 @@ def read_in_PDBBind_data(
         ## the y values is the -logKd/Ki
         fh = open(os.path.join(data_dir, data_file_name), 'r')
         c = 0
-        column_list_data = ["PDB_code",
-                            "resolution",
-                            "release_year",
-                            "-logKd/Ki",
-                            "Kd/Ki",
-                            "reference",
-                            "ligand name"]
         lines = []
         for line in fh.readlines():
             if not line.startswith('#'):
@@ -159,7 +154,7 @@ def read_in_PDBBind_data(
                     # labels = line
 
         fh.close()
-        df_data_core = pd.DataFrame(lines, columns=column_list_data)
+        df_data_core = pd.DataFrame(lines, columns=data_column_list_name)
         df_data_core.head()
         print('Sample of data file:')
         print(df_data_core.head())
@@ -171,12 +166,6 @@ def read_in_PDBBind_data(
         ## the y values is the -logKd/Ki
         fh = open(os.path.join(data_dir, cluster_file_name), 'r')
         c = 0
-        column_list_cluster = ['PDB_code',
-                               'resolution',
-                               'release_year',
-                               '-logKd/Ki',
-                               'original_Kd/Ki',
-                               'cluster ID']
         lines = []
         for line in fh.readlines():
             if not line.startswith('#'):
@@ -194,7 +183,7 @@ def read_in_PDBBind_data(
                     # labels = line
 
         fh.close()
-        df_cluster_core = pd.DataFrame(lines, columns=column_list_cluster)
+        df_cluster_core = pd.DataFrame(lines, columns=cluster_column_list_name)
         print('Sample of cluster file:')
         print(df_cluster_core.head())
     else:
@@ -231,7 +220,7 @@ def make_topological_features_for_PDBBind(df_cluster_core,
 
     point_ptr = -1
     # structure_file_format='pdb'
-    pdb_list = df_cluster_core['PDB_code']
+    pdb_list = df_cluster_core['PDB_code'].to_list()
     if structure_file_format == 'mol2':
         input_file_end_name = 'ligand'
     elif structure_file_format == 'pdb':
@@ -1839,8 +1828,15 @@ def method_comparison_plotter(
     df2.to_csv(os.path.join(results_dir, 'means_stds_in_plot_' + filename + sigh + 'csv'))
 
     x_positions = [x + 1 for x in range(len(means))]
-    ax = plt.figure(figsize=(16, 9))
-    plt.rcParams.update({'font.size': 22})
+    ax = plt.figure(figsize=(9, 9))
+    parameters = {'axes.labelsize': 36,
+                  'axes.titlesize': 36,
+                  'xtick.labelsize':36,
+                  'ytick.labelsize':36}
+    plt.rcParams.update(parameters)
+    #plt.rcParams.update({'font.size': 36})
+    ax.xaxis.label.set_size(36)
+    ax.yaxis.label.set_size(36)
 
     plt.bar(x_positions, means,
             color=color_list,
@@ -1879,8 +1875,8 @@ def method_comparison_plotter(
                  linewidth=4, linestyle='dotted')
 
     axes = plt.gca()
-    plt.ylabel(y_label)
-    plt.xlabel(x_label)
+    plt.ylabel(y_label, fontsize=36)
+    plt.xlabel(x_label, fontsize=36)
     plt.savefig(os.path.join(results_dir, filename + rider))
     return ax, means, stds
 

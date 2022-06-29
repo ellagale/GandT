@@ -29,37 +29,46 @@ sys.path.append(r"C:\Users\ella_\Documents\GitHub\icosahedron_projection")
 
 
 # CHANGE THIS IF NECESSARY
-save_dir=r'F:\Nextcloud\science\Datasets\converted_pdbbind\v2015'
-data_dir=r'F:\Nextcloud\science\Datasets\pdbbind\v2015'
+save_dir=r'F:\Nextcloud\science\Datasets\converted_pdbbind\v2020'
+data_dir=r'F:\Nextcloud\science\Datasets\pdbbind\v2020\PDBbind_v2020_refined'
 results_dir=r"F:\Nextcloud\science\results\topology_and_graphs\PDBBind"
-test_file='1a1c_pocket.pdb'
-test_file_ligand='1a1c_ligand.mol2'
-test_pdb_code='1a1c'
-out_file_name='PDBBind_refined_topological_features.hdf5'
-make_dataset=False # whether to recalc the dataset
+test_file='1a1e_pocket.pdb'
+test_file_ligand='1a1e_ligand.mol2'
+test_pdb_code='1a1e'
+out_file_name='PDBBind_refined_2020_topological_features.hdf5'
+make_dataset=True # whether to recalc the dataset
 
-name_file_name="INDEX_core_name.2013",
-data_file_name="INDEX_core_data.2013",
-cluster_file_name = "INDEX_core_cluster.2013"
+#name_file_name="INDEX_core_name.2013",
+#data_file_name="INDEX_core_data.2020",
+#cluster_file_name = "INDEX_core_cluster.2020"
+
+print("Doing core data file")
 
 df_index_core, df_data_core, df_cluster_core = h.read_in_PDBBind_data(
     data_dir,
-    name_file_name="INDEX_core_name.2013",
-    data_file_name="INDEX_core_data.2013",
-    cluster_file_name = "INDEX_core_cluster.2013")
+    name_file_name="",
+    data_file_name="",
+    cluster_file_name = "INDEX_core_cluster.2020")
 
 #RUN THIS
-name_file_name="INDEX_refined_name.2013",
-data_file_name="INDEX_refined_data.2013",
-cluster_file_name = "INDEX_refined_cluster.2013"
+#name_file_name="INDEX_refined_name.2020",
+#data_file_name="INDEX_refined_data.2020",
+#cluster_file_name = '' #"INDEX_refined_cluster.2013"
+
+print("Doing refined data file")
 
 df_index_refined, df_data_refined, df_cluster_refined = h.read_in_PDBBind_data(
     data_dir,
-    name_file_name="INDEX_refined_name.2015",
-    data_file_name="INDEX_refined_data.2015",
+    name_file_name="INDEX_refined_name.2020",
+    data_file_name="INDEX_refined_data.2020",
     cluster_file_name = "")
+ #   name_column_list_name = ["line_no.", "PDB_code", "release_year", "EC_number", "protein_name"],
+ #   data_column_list_name=["line_no.","PDB_code","resolution","release_year","-logKd/Ki","Kd/Ki","reference","ligand name"],
+ #   cluster_column_list_name = ['line_no','PDB_code','resolution', 'release_year','-logKd/Ki','original_Kd/Ki','cluster ID'])
 
-PDB_List=df_index_core['PDB_code']
+print('eh')
+
+PDB_List=df_index_refined['PDB_code'].to_list()
 Num_of_proteins = len(PDB_List)
 feature_name_list = ['P_pers_S_1', 'P_pers_S_2', 'P_pers_S_3',
                     'P_no_p_1', 'P_no_p_2', 'P_no_p_3',
@@ -75,49 +84,51 @@ feature_name_list = ['P_pers_S_1', 'P_pers_S_2', 'P_pers_S_3',
                     'L_pers_img_1', 'L_pers_img_2', 'L_pers_img_3'] ## finish this!
 
 dataset = np.zeros((Num_of_proteins, 36))
-out_file_name="PDBBind_core_topological_features.hdf5"
+out_file_name="PDBBind_refined_2020_topological_features.hdf5"
 # Open hdf5 file, calc basic details
 #outfile = out_file_name
 print(out_file_name)
-fh = h5py.File(os.path.join(save_dir,out_file_name), 'r+')
-num_of_rows, num_of_molecules = h.basic_info_hdf5_dataset(fh, label='molID')
-i=0
-for feature_name in feature_name_list:
-    dataset[:,i] = fh[feature_name][:]
-    i=i+1
+fh = h5py.File(os.path.join(save_dir,out_file_name), 'w')
+
+#i=0
+#for feature_name in feature_name_list:
+#    dataset[:,i] = fh[feature_name][:]
+#    i=i+1
 
 
-topl_PDB_all_core_mat_large=dataset
+#topl_PDB_all_core_mat_large=dataset
 
-topl_PDB_all_core_large=dataset.tolist()
+#topl_PDB_all_core_large=dataset.tolist()
 
-topl_PDB_all_core_small = [x[0:3] for x in topl_PDB_all_core_large]
-#topl_PDB_all_core_small
-topl_PDB_all_core_mat_small = np.array(topl_PDB_all_core_small)
-#topl_PDB_all_core_mat_small
+#topl_PDB_all_core_small = [x[0:3] for x in topl_PDB_all_core_large]
 
-X_data_large = topl_PDB_all_core_mat_large
-X_data_small = topl_PDB_all_core_mat_small
-X_data = X_data_large
-Num_of_proteins = len(X_data)
+#topl_PDB_all_core_mat_small = np.array(topl_PDB_all_core_small)
 
-y_dataset=np.zeros((Num_of_proteins, 2))
-i=0
-for feature_name in ["-logKd_over_Ki","-logKd_over_Ki"]:
-    y_dataset[:,i] = fh[feature_name][:]
-    i=i+1
+
+#X_data_large = topl_PDB_all_core_mat_large
+#X_data_small = topl_PDB_all_core_mat_small
+#X_data = X_data_large
+#Num_of_proteins = len(X_data)
+
+#_dataset=np.zeros((Num_of_proteins, 2))
+#i=0
+#for feature_name in ["-logKd_over_Ki","-logKd_over_Ki"]:
+#    y_dataset[:,i] = fh[feature_name][:]
+#    i=i+1
 
 #y_data = fh["-logKd_over_Ki"][:].tolist()
 
-from sklearn.decomposition import PCA
-pca = PCA(n_components=36)
-principalComponents_large = pca.fit_transform(topl_PDB_all_core_large)
 
-make_dataset=False
+
+#from sklearn.decomposition import PCA
+#pca = PCA(n_components=36)
+#principalComponents_large = pca.fit_transform(topl_PDB_all_core_large)
+
+#make_dataset=False
 if make_dataset:
-    Num_of_proteins = 0## change this to 0 to do all of them
+    Num_of_proteins = 5#0## change this to 0 to do all of them
     topl_PDB_all_core_large, topl_PDB_all_core_mat_large=h.create_and_merge_PDBBind_topol_features(
-                                df_index_core,
+                                df_cluster_core,
                                 verbose=False,
                                 Num_of_proteins=Num_of_proteins,
                                 Num_of_features=18,
@@ -134,11 +145,13 @@ if make_dataset:
     #topl_PDB_all_core_small
     topl_PDB_all_core_mat_small = np.array(topl_PDB_all_core_small)
 
+exit(0)
+
 # RUN THIS
-make_dataset = False
+#make_dataset = False
 do_specified_range = True
-selected_range = [x for x in range(7, 10)]
-Num_of_proteins = 0  ## change this to 0 to do all of them
+selected_range = [x for x in range(0, 5)]
+#Num_of_proteins = 0  ## change this to 0 to do all of them
 
 from pathlib import Path
 import numpy as np
