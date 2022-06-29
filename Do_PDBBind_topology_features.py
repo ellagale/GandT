@@ -1,34 +1,27 @@
 ######################################################################################################################
 ##########################   make topological features and put them into a hdf5 file #################################
 ######################################################################################################################
-
-# TODO : tidy this file up and check it, it is a bit messay I think 
-
-
-
-# fixc this at some point
-import sys
-sys.path.append(r"C:\Users\ella_\Documents\GitHub\graphs_and_topology_for_chemistry")
-sys.path.append(r"C:\Users\ella_\Documents\GitHub\icosahedron_projection")
-
+#   See instructions for usage, read comments below for understanding
+######################################################################################################################
+########################################## load pacakges #############################################################
+######################################################################################################################
 import tensorflow as tf
 import os
 import sys
-import rdkit
 import h5py
 import helper_functions as h
-
 import numpy as np
-
+from sklearn.decomposition import PCA
 
 print("TensorFlow version: " + tf.__version__)
-
-# fixc this at some point
+######################################################################################################################
+###################################     Location of packages and folders    ##########################################
+######################################################################################################################
+# change this for upload to GitHub as public repo
 sys.path.append(r"C:\Users\ella_\Documents\GitHub\graphs_and_topology_for_chemistry")
-sys.path.append(r"C:\Users\ella_\Documents\GitHub\icosahedron_projection")
+#sys.path.append(r"C:\Users\ella_\Documents\GitHub\icosahedron_projection")
 
-
-# CHANGE THIS IF NECESSARY
+# ############################### CHANGE THIS IF NECESSARY ###########################################################
 save_dir=r'F:\Nextcloud\science\Datasets\converted_pdbbind\v2020'
 data_dir=r'F:\Nextcloud\science\Datasets\pdbbind\v2020\PDBbind_v2020_refined'
 results_dir=r"F:\Nextcloud\science\results\topology_and_graphs\PDBBind"
@@ -36,39 +29,54 @@ test_file='1a1e_pocket.pdb'
 test_file_ligand='1a1e_ligand.mol2'
 test_pdb_code='1a1e'
 out_file_name='PDBBind_refined_2020_topological_features.hdf5'
-make_dataset=True # whether to recalc the dataset
 
-#name_file_name="INDEX_core_name.2013",
-#data_file_name="INDEX_core_data.2020",
-#cluster_file_name = "INDEX_core_cluster.2020"
+#   core file names - you only need cluster and only have cluster for v2020
+core_name_file_name="" #"INDEX_core_name.2013",
+core_data_file_name="" #"INDEX_core_data.2020",
+core_cluster_file_name = "INDEX_core_cluster.2020"
+#   refined file names - you only need cluster and only have cluster for v2020
+refined_name_file_name="" # "INDEX_refined_name.2020"
+refined_data_file_name="INDEX_refined_data.2020"
+refined_cluster_file_name = '' # refined doesn't have a cluster file
+######################################################################################################################
+
+######################################################################################################################
+#####################################   Settings: Alter this    ######################################################
+######################################################################################################################
+make_dataset=True # whether to recalc the dataset the dataset - saves as csv
+make_hdf5=True # whether to make the hdf5 version
+do_specified_range = True
+selected_range = [x for x in range(0, 5)]
+do_PCA = True
+#####################################################
+##################################################################
 
 print("Doing core data file")
 
 df_index_core, df_data_core, df_cluster_core = h.read_in_PDBBind_data(
     data_dir,
-    name_file_name="",
-    data_file_name="",
-    cluster_file_name = "INDEX_core_cluster.2020")
+    name_file_name=core_name_file_name,
+    data_file_name=core_data_file_name,
+    cluster_file_name = core_cluster_file_name)
 
 #RUN THIS
-#name_file_name="INDEX_refined_name.2020",
-#data_file_name="INDEX_refined_data.2020",
-#cluster_file_name = '' #"INDEX_refined_cluster.2013"
+
 
 print("Doing refined data file")
 
 df_index_refined, df_data_refined, df_cluster_refined = h.read_in_PDBBind_data(
     data_dir,
-    name_file_name="INDEX_refined_name.2020",
-    data_file_name="INDEX_refined_data.2020",
-    cluster_file_name = "")
- #   name_column_list_name = ["line_no.", "PDB_code", "release_year", "EC_number", "protein_name"],
+    name_file_name=refined_name_file_name,
+    data_file_name=refined_data_file_name,
+    cluster_file_name = refined_cluster_file_name,
+    name_column_list_name = ['PDB_code', 'release year', 'Uniprot ID', 'protein name' ],
+    data_column_list_name = ['PDB_code', 'resolution', 'release year', '-logKd/Ki', 'Kd/Ki', 'meh', 'reference', 'ligand name'])#["line_no.", "PDB_code", "release_year", "EC_number", "protein_name"],
  #   data_column_list_name=["line_no.","PDB_code","resolution","release_year","-logKd/Ki","Kd/Ki","reference","ligand name"],
  #   cluster_column_list_name = ['line_no','PDB_code','resolution', 'release_year','-logKd/Ki','original_Kd/Ki','cluster ID'])
 
 print('eh')
 
-PDB_List=df_index_refined['PDB_code'].to_list()
+PDB_List=df_data_refined['PDB_code'].to_list()
 Num_of_proteins = len(PDB_List)
 feature_name_list = ['P_pers_S_1', 'P_pers_S_2', 'P_pers_S_3',
                     'P_no_p_1', 'P_no_p_2', 'P_no_p_3',
@@ -88,7 +96,7 @@ out_file_name="PDBBind_refined_2020_topological_features.hdf5"
 # Open hdf5 file, calc basic details
 #outfile = out_file_name
 print(out_file_name)
-fh = h5py.File(os.path.join(save_dir,out_file_name), 'w')
+#fh = h5py.File(os.path.join(save_dir,out_file_name), 'w')
 
 #i=0
 #for feature_name in feature_name_list:
@@ -120,19 +128,21 @@ fh = h5py.File(os.path.join(save_dir,out_file_name), 'w')
 
 
 
-#from sklearn.decomposition import PCA
+#
 #pca = PCA(n_components=36)
 #principalComponents_large = pca.fit_transform(topl_PDB_all_core_large)
 
 #make_dataset=False
 if make_dataset:
-    Num_of_proteins = 5#0## change this to 0 to do all of them
+    Num_of_proteins = 2#0## change this to 0 to do all of them
     topl_PDB_all_core_large, topl_PDB_all_core_mat_large=h.create_and_merge_PDBBind_topol_features(
                                 df_cluster_core,
                                 verbose=False,
                                 Num_of_proteins=Num_of_proteins,
                                 Num_of_features=18,
-                                data_dir=data_dir)
+                                data_dir=data_dir,
+                                save_dir=save_dir,
+                                save_file_name='core_topological_features.csv')
 
     #topl_PDB_all_core_small, topl_PDB_all_core_mat_small=h.create_and_merge_PDBBind_topol_features(
     #                            df_index_core,
@@ -145,32 +155,26 @@ if make_dataset:
     #topl_PDB_all_core_small
     topl_PDB_all_core_mat_small = np.array(topl_PDB_all_core_small)
 
-exit(0)
+    #topl_PDB_all_core_mat_large
+
 
 # RUN THIS
-#make_dataset = False
-do_specified_range = True
-selected_range = [x for x in range(0, 5)]
-#Num_of_proteins = 0  ## change this to 0 to do all of them
 
-from pathlib import Path
-import numpy as np
-import os
-import csv
 
 current_ptr = 0
 batch_size = 100
-remaining = len(df_index_refined)
+remaining = 2 #len(df_index_refined)
 
+csv_output_file='refined_topological_features.csv'
 if make_dataset:
-    with open('output.csv', 'w') as f:
+    with open(os.path.join(save_dir,csv_output_file), 'w') as f:
         while remaining > 0:
             this_batch = min(batch_size, remaining)
             this_range = list(range(current_ptr, current_ptr + this_batch))
 
             out_list, y_new = h.create_and_merge_PDBBind_topol_features(
-                df_index_refined,
-                verbose=False,
+                df_data_refined,
+                verbose=True,
                 Num_of_proteins=Num_of_proteins,
                 Num_of_features=18,
                 data_dir=data_dir,
@@ -185,10 +189,15 @@ if make_dataset:
 
     f.close()
 
-pca = PCA(n_components=36)
-principalComponents_core = pca.fit_transform(topl_PDB_all_core_large)
+exit(0)
 
-if make_dataset:
+if do_PCA:
+    pca = PCA(n_components=36)
+    principalComponents_core = pca.fit_transform(topl_PDB_all_core_large)
+
+## yes these could be a function, but it works and I don't want to fuck with it and then have to debug
+
+if make_hdf5:
     outfile = h5py.File(os.path.join(save_dir,out_file_name),"w")
     string_type = h5py.string_dtype(encoding='utf-8')
 
@@ -382,7 +391,7 @@ if make_dataset:
         outfile.close()
 
 make_dataset = False
-topl_PDB_all_refined_mat_large = np.genfromtxt('output.csv', delimiter=',')
+topl_PDB_all_refined_mat_large = np.genfromtxt(csv_output_file, delimiter=',')
 topl_PDB_all_refined_large=topl_PDB_all_refined_mat_large.tolist()
 from sklearn.decomposition import PCA
 pca = PCA(n_components=36)

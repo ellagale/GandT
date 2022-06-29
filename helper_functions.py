@@ -112,10 +112,11 @@ def read_in_PDBBind_data(
             if not line.startswith('#'):
                 if c == 0:
                     words = [x for x in line.split(' ') if not x == '']
-                    last_word = words[3:]
-                    last_word[-1] = last_word[-1].strip()
-                    last_word = '_'.join(last_word)
-                    new_line = [words[0], words[1], words[2], last_word]
+                    last_word = words[-1]
+                    last_word = last_word[-1].strip()
+                    words[-1] = last_word
+                    #last_word = '_'.join(last_word)
+                    new_line = words
                     # print(new_line)
                     lines.append(new_line)
                     # df_line = pd.DataFrame([new_line],columns=column_list)
@@ -141,11 +142,11 @@ def read_in_PDBBind_data(
                 if c == 0:
                     words = [x for x in line.split(' ') if not x == '']
                     # Not actually the last word!
-                    last_word = words[5:-1]
-                    last_word[-1] = last_word[-1].strip()
-                    last_word = '_'.join(last_word)
+                    last_word = words[-1].strip()
+                    words[-1] = last_word
+                     #last_word = '_'.join(last_word)
 
-                    new_line = [words[0], words[1], words[2], words[3], words[4], last_word, words[-1][1:-2]]
+                    new_line = words#[words[0], words[1], words[2], words[3], words[4], last_word, words[-1][1:-2]]
                     # print(new_line)
                     lines.append(new_line)
                     # df_line = pd.DataFrame([new_line],columns=column_list)
@@ -171,10 +172,11 @@ def read_in_PDBBind_data(
             if not line.startswith('#'):
                 if c == 0:
                     words = [x for x in line.split(' ') if not x == '']
-                    last_word = words[5:]
-                    last_word[-1] = last_word[-1].strip()
-                    last_word = '_'.join(last_word)
-                    new_line = [words[0], words[1], words[2], words[3], words[4], last_word]
+                    #last_word = words[-1]
+                    last_word = words[-1].strip()
+                   # last_word = '_'.join(last_word)
+                    words[-1] = last_word
+                    new_line = words # [words[0], words[1], words[2], words[3], words[4], last_word]
                     # print(new_line)
                     lines.append(new_line)
                     # df_line = pd.DataFrame([new_line],columns=column_list)
@@ -296,18 +298,20 @@ def make_topological_features_for_PDBBind(df_cluster_core,
     return topol_feat_list, topol_feat_mat
 
 
-def create_and_merge_PDBBind_topol_features(df_cluster_core,
+def create_and_merge_PDBBind_topol_features(df_cluster,
                                             Num_of_proteins=5,
                                             Num_of_features=18,
                                             data_dir='',
                                             do_specified_range=False,
                                             selected_range=[],
-                                            verbose=False):
+                                            verbose=False,
+                                            save_dir=os.getcwd(),
+                                            save_file_name = 'test.csv'):
     """merges topological features for ligand nad protein into the same dataset
     i.e. each row has x protein features and y ligand features"""
     # grab ligands
     print('Doing the proteins...')
-    topol_feat_list_protein, topol_feat_mat_protein = make_topological_features_for_PDBBind(df_cluster_core,
+    topol_feat_list_protein, topol_feat_mat_protein = make_topological_features_for_PDBBind(df_cluster,
                                                                                             structure_file_format='pdb',
                                                                                             verbose=verbose,
                                                                                             Num_of_proteins=Num_of_proteins,
@@ -318,7 +322,7 @@ def create_and_merge_PDBBind_topol_features(df_cluster_core,
 
     # do proteins
     print('Doing the ligands')
-    topol_feat_list_ligand, topol_feat_mat_ligand = make_topological_features_for_PDBBind(df_cluster_core,
+    topol_feat_list_ligand, topol_feat_mat_ligand = make_topological_features_for_PDBBind(df_cluster,
                                                                                           structure_file_format='mol2',
                                                                                           verbose=verbose,
                                                                                           Num_of_proteins=Num_of_proteins,
@@ -332,7 +336,10 @@ def create_and_merge_PDBBind_topol_features(df_cluster_core,
 
     # numpy version of data
     topl_PDB_all_core_mat = np.array(topl_PDB_all_core)
-    np.savetxt("test.txt", topl_PDB_all_core_mat)
+    pd.DataFrame(topl_PDB_all_core_mat).to_csv(
+        os.path.join(save_dir, save_file_name),
+        index=False, header=False)
+    #np.savetxt(os.path.join(save_dir, save_file_name), topl_PDB_all_core_mat)
     if verbose:
         print(topl_PDB_all_core)
         print(topl_PDB_all_core_mat)
