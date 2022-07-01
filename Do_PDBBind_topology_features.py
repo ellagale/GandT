@@ -24,12 +24,13 @@ sys.path.append(r"C:\Users\ella_\Documents\GitHub\graphs_and_topology_for_chemis
 # ############################### CHANGE THIS IF NECESSARY ###########################################################
 save_dir=r'F:\Nextcloud\science\Datasets\converted_pdbbind\v2020'
 data_dir=r'F:\Nextcloud\science\Datasets\pdbbind\v2020\PDBbind_v2020_refined'
+data_dir_core = r'F:\Nextcloud\science\Datasets\pdbbind\v2016\pdbbind_v2016_refined.tar\refined-set'
 results_dir=r"F:\Nextcloud\science\results\topology_and_graphs\PDBBind"
 test_file='1a1e_pocket.pdb'
 test_file_ligand='1a1e_ligand.mol2'
 test_pdb_code='1a1e'
 out_file_name='PDBBind_refined_2020_topological_features.hdf5'
-core_out_file_name = 'PDBBind_core_2020_topological_features.hdf5'
+core_out_file_name = 'PDBBind_core_2020_topological_features_good.hdf5'
 
 #   core file names - you only need cluster and only have cluster for v2020
 core_name_file_name="" #"INDEX_core_name.2013",
@@ -39,12 +40,18 @@ core_cluster_file_name = "INDEX_core_cluster.2020"
 refined_name_file_name="" # "INDEX_refined_name.2020"
 refined_data_file_name="INDEX_refined_data.2020"
 refined_cluster_file_name = '' # refined doesn't have a cluster file
+# this is the number of complexes from core in the refined set
+# annoyingly you need to first make the full dataset, then remake the hdf5 once you've loaded the dataset
+# and checked.
+# and to make the full dataset you gotta remove the check for PDB codes in core which is janky
+# but I cant be arsed to rewrite it right now
+missing = 266 - 1
 ######################################################################################################################
 
 ######################################################################################################################
 #####################################   Settings: Alter this    ######################################################
 ######################################################################################################################
-make_dataset=True # whether to recalc the dataset the dataset - saves as csv
+make_dataset=False # whether to recalc the dataset the dataset - saves as csv
 make_hdf5=True # whether to make the hdf5 version
 # things to do a smaller set
 # chose via  specified range
@@ -53,11 +60,11 @@ selected_range = [x for x in range(0, 5)]
 do_PCA = False
 
 # set to zero to do all
-num_of_proteins_override= 0 #2 #21
-core_num_of_proteins = 0 # 2 # used to make core csv file
+#ride= 0 #2 #21
+core_num_of_proteins = 0 #0 # 2 # used to make core csv file
 refined_remaining = 0 #2 # used to make refined csv file
 
-num_of_core_proteins_override = 0 #2 # used for core hdf5
+num_of_core_proteins_override = 0 # 0 #2 # used for core hdf5
 num_of_refined_proteins_override = 0 #2 # used for refined hdf5
 #####################################################
 ##################################################################
@@ -116,12 +123,13 @@ if make_dataset:
     #if core_num_of_proteins = 0
     #    core_num_of_proteins = Num_of_proteins
     #0## change this to 0 to do all of them
+    ## note tested, but should look in 2016 for the data
     topl_PDB_all_core_large, topl_PDB_all_core_mat_large=h.create_and_merge_PDBBind_topol_features(
                                 df_cluster_core,
                                 verbose=False,
                                 Num_of_proteins=core_num_of_proteins,
                                 Num_of_features=18,
-                                data_dir=data_dir,
+                                data_dir=data_dir_core,
                                 save_dir=save_dir,
                                 save_file_name='core_topological_features.csv')
 
@@ -191,10 +199,16 @@ if do_PCA:
 
 if make_hdf5:
     #?pdb
+
+    topl_PDB_all_core_mat_large = np.genfromtxt(
+        os.path.join(save_dir, 'core_topological_features.csv'), delimiter=',')
+    topl_PDB_all_core_large = topl_PDB_all_core_mat_large.tolist()
+
     outfile = h5py.File(os.path.join(save_dir,core_out_file_name),"w")
     string_type = h5py.string_dtype(encoding='utf-8')
 
-    PDB_List=df_cluster_core['PDB_code']
+    PDB_List=df_cluster_core['PDB_code'].to_list()
+    PDB_List_core = df_cluster_core['PDB_code'].to_list()
     df_index = df_index_core
     df_data = df_cluster_core#data_core
     df_cluster = df_cluster_core
@@ -405,7 +419,7 @@ if make_hdf5:
     outfile = h5py.File(os.path.join(save_dir, out_file_name), "w")
     string_type = h5py.string_dtype(encoding='utf-8')
 
-    PDB_List = df_data_refined['PDB_code']
+    PDB_List = df_data_refined['PDB_code'].to_list()
     df_index = df_data_refined
     df_data = df_data_refined
     # df_cluster = df_cluster_core
@@ -421,8 +435,13 @@ if make_hdf5:
             if num_of_refined_proteins_override == 0:
                 # do all proteins woo
                 Num_of_proteins = len(PDB_List)
+                Num_of_proteins_for_loop = Num_of_proteins
             else:
                 Num_of_proteins = num_of_refined_proteins_override
+                Num_of_proteins_for_loop = Num_of_proteins
+
+            if not missing == 0:
+                Num_of_proteins = Num_of_proteins - missing
 
             ##################### set up the output datasets ################################
 
@@ -530,70 +549,74 @@ if make_hdf5:
             resolution_ds = outfile.create_dataset('resolution', (Num_of_proteins,), dtype=np.float32)
             ligand_ds = outfile.create_dataset('ligand_name', (Num_of_proteins,), dtype=string_type)
 
-            for mol_idx in range(Num_of_proteins):
-                if mol_idx % 50 == 0:
-                    print('Got to Molecule no. ', mol_idx, PDB_List[mol_idx])
-                molID_ds[mol_idx] = mol_idx
-
+            count = 0
+            for mol_idx in range(Num_of_proteins_for_loop):
                 # get the current PDB code
                 current_code = PDB_List[mol_idx]
-                # get the rows in the dataframes
-                current_index_row = df_data.loc[df_index['PDB_code'] == current_code]
-                print(current_code)
-                print(current_index_row)
-                current_data_row = df_data.loc[df_data['PDB_code'] == current_code]
-                print(current_data_row)
-                if do_cluster:
-                    current_cluster_row = df_cluster.loc[df_cluster['PDB_code'] == current_code]
-                    print(current_cluster_row)
-                pdb_code = current_index_row.iloc[0]['PDB_code']
-                pdb_code_ds[mol_idx] = np.array(pdb_code, dtype=string_type)
+                if not current_code in PDB_List_core:
+                    if mol_idx % 50 == 0:
+                        print('Got to Molecule no. ', mol_idx, PDB_List[mol_idx])
+                    molID_ds[count] = mol_idx
+                    # get the rows in the dataframes
+                    current_index_row = df_data.loc[df_index['PDB_code'] == current_code]
+                    print(current_code)
+                    print(current_index_row)
+                    current_data_row = df_data.loc[df_data['PDB_code'] == current_code]
+                    print(current_data_row)
+                    if do_cluster:
+                        current_cluster_row = df_cluster.loc[df_cluster['PDB_code'] == current_code]
+                        print(current_cluster_row)
+                    pdb_code = current_index_row.iloc[0]['PDB_code']
+                    pdb_code_ds[count] = np.array(pdb_code, dtype=string_type)
 
-                #      Persistence entropy
-                (P_pers_S_1_ds[mol_idx], P_pers_S_2_ds[mol_idx], P_pers_S_3_ds[mol_idx],
-                 P_no_p_1_ds[mol_idx], P_no_p_2_ds[mol_idx], P_no_p_3_ds[mol_idx],
-                 P_bottle_1_ds[mol_idx], P_bottle_2_ds[mol_idx], P_bottle_3_ds[mol_idx],
-                 P_wasser_1_ds[mol_idx], P_wasser_2_ds[mol_idx], P_wasser_3_ds[mol_idx],
-                 P_landsc_1_ds[mol_idx], P_landsc_2_ds[mol_idx], P_landsc_3_ds[mol_idx],
-                 P_pers_img_1_ds[mol_idx], P_pers_img_2_ds[mol_idx], P_pers_img_3_ds[mol_idx],
-                 L_pers_S_1_ds[mol_idx], L_pers_S_2_ds[mol_idx], L_pers_S_3_ds[mol_idx],
-                 L_no_p_1_ds[mol_idx], L_no_p_2_ds[mol_idx], L_no_p_3_ds[mol_idx],
-                 L_bottle_1_ds[mol_idx], L_bottle_2_ds[mol_idx], L_bottle_3_ds[mol_idx],
-                 L_wasser_1_ds[mol_idx], L_wasser_2_ds[mol_idx], L_wasser_3_ds[mol_idx],
-                 L_landsc_1_ds[mol_idx], L_landsc_2_ds[mol_idx], L_landsc_3_ds[mol_idx],
-                 L_pers_img_1_ds[mol_idx], L_pers_img_2_ds[mol_idx], L_pers_img_3_ds[mol_idx]) = topl_PDB_large[mol_idx]
+                    #      Persistence entropy
+                    (P_pers_S_1_ds[count], P_pers_S_2_ds[count], P_pers_S_3_ds[count],
+                     P_no_p_1_ds[count], P_no_p_2_ds[count], P_no_p_3_ds[count],
+                     P_bottle_1_ds[count], P_bottle_2_ds[count], P_bottle_3_ds[count],
+                     P_wasser_1_ds[count], P_wasser_2_ds[count], P_wasser_3_ds[count],
+                     P_landsc_1_ds[count], P_landsc_2_ds[count], P_landsc_3_ds[count],
+                     P_pers_img_1_ds[count], P_pers_img_2_ds[count], P_pers_img_3_ds[count],
+                     L_pers_S_1_ds[count], L_pers_S_2_ds[count], L_pers_S_3_ds[count],
+                     L_no_p_1_ds[count], L_no_p_2_ds[count], L_no_p_3_ds[count],
+                     L_bottle_1_ds[count], L_bottle_2_ds[count], L_bottle_3_ds[count],
+                     L_wasser_1_ds[count], L_wasser_2_ds[count], L_wasser_3_ds[count],
+                     L_landsc_1_ds[count], L_landsc_2_ds[count], L_landsc_3_ds[count],
+                     L_pers_img_1_ds[count], L_pers_img_2_ds[count], L_pers_img_3_ds[count]) = topl_PDB_large[mol_idx]
 
-                # PCA
-                if do_PCA:
-                    (PCA_1_ds[mol_idx], PCA_2_ds[mol_idx], PCA_3_ds[mol_idx], PCA_4_ds[mol_idx], PCA_5_ds[mol_idx],
-                     PCA_6_ds[mol_idx], PCA_7_ds[mol_idx], PCA_8_ds[mol_idx], PCA_9_ds[mol_idx], PCA_10_ds[mol_idx],
-                     PCA_11_ds[mol_idx], PCA_12_ds[mol_idx], PCA_13_ds[mol_idx], PCA_14_ds[mol_idx], PCA_15_ds[mol_idx],
-                     PCA_16_ds[mol_idx], PCA_17_ds[mol_idx], PCA_18_ds[mol_idx], PCA_19_ds[mol_idx], PCA_20_ds[mol_idx],
-                     PCA_21_ds[mol_idx], PCA_22_ds[mol_idx], PCA_23_ds[mol_idx], PCA_24_ds[mol_idx], PCA_25_ds[mol_idx],
-                     PCA_26_ds[mol_idx], PCA_27_ds[mol_idx], PCA_28_ds[mol_idx], PCA_29_ds[mol_idx], PCA_30_ds[mol_idx],
-                     PCA_31_ds[mol_idx], PCA_32_ds[mol_idx], PCA_33_ds[mol_idx], PCA_34_ds[mol_idx], PCA_35_ds[mol_idx],
-                     PCA_36_ds[mol_idx]) = principalComponents_refined[mol_idx]
+                    # PCA
+                    if do_PCA:
+                        (PCA_1_ds[count], PCA_2_ds[count], PCA_3_ds[count], PCA_4_ds[count], PCA_5_ds[count],
+                         PCA_6_ds[count], PCA_7_ds[count], PCA_8_ds[count], PCA_9_ds[count], PCA_10_ds[count],
+                         PCA_11_ds[count], PCA_12_ds[count], PCA_13_ds[count], PCA_14_ds[count], PCA_15_ds[count],
+                         PCA_16_ds[count], PCA_17_ds[count], PCA_18_ds[count], PCA_19_ds[count], PCA_20_ds[count],
+                         PCA_21_ds[count], PCA_22_ds[count], PCA_23_ds[count], PCA_24_ds[count], PCA_25_ds[count],
+                         PCA_26_ds[count], PCA_27_ds[count], PCA_28_ds[count], PCA_29_ds[count], PCA_30_ds[count],
+                         PCA_31_ds[count], PCA_32_ds[count], PCA_33_ds[count], PCA_34_ds[count], PCA_35_ds[count],
+                         PCA_36_ds[count]) = principalComponents_refined[mol_idx]
 
-                release_year = current_index_row.iloc[0]['release_year']
-                # print(type(release_year))
-                release_year_ds[mol_idx] = release_year
-                #ec_number = current_index_row.iloc[0]['EC_number']
-                #ec_number_ds[mol_idx] = ec_number
-                #protein_name = current_index_row.iloc[0]['protein_name']
-                #protein_name_ds[mol_idx] = protein_name
-                logkd_ki = current_data_row.iloc[0]['-logKd/Ki']
-                logkd_ki_ds[mol_idx] = float(logkd_ki)
-                kd_ki = current_data_row.iloc[0]['Kd/Ki']
-                kd_ki_ds[mol_idx] = kd_ki
-                reference = current_data_row.iloc[0]['reference']
-                reference_ds[mol_idx] = reference
-                if do_cluster:
-                    cluster_id = current_cluster_row.iloc[0]['cluster ID']
-                    cluster_id_ds[mol_idx] = cluster_id
-                resolution = current_data_row.iloc[0]['resolution']
-                resolution_ds[mol_idx] = float(resolution)
-                ligand_name = current_data_row.iloc[0]['ligand_name']
-                ligand_ds[mol_idx] = ligand_name
+                    release_year = current_index_row.iloc[0]['release_year']
+                    # print(type(release_year))
+                    release_year_ds[count] = release_year
+                    #ec_number = current_index_row.iloc[0]['EC_number']
+                    #ec_number_ds[count] = ec_number
+                    #protein_name = current_index_row.iloc[0]['protein_name']
+                    #protein_name_ds[count] = protein_name
+                    logkd_ki = current_data_row.iloc[0]['-logKd/Ki']
+                    logkd_ki_ds[count] = float(logkd_ki)
+                    kd_ki = current_data_row.iloc[0]['Kd/Ki']
+                    kd_ki_ds[count] = kd_ki
+                    reference = current_data_row.iloc[0]['reference']
+                    reference_ds[count] = reference
+                    if do_cluster:
+                        cluster_id = current_cluster_row.iloc[0]['cluster ID']
+                        cluster_id_ds[count] = cluster_id
+                    resolution = current_data_row.iloc[0]['resolution']
+                    resolution_ds[count] = float(resolution)
+                    ligand_name = current_data_row.iloc[0]['ligand_name']
+                    ligand_ds[count] = ligand_name
+                    count = count + 1
+                else:
+                    print(f'{current_code} is in core dataset, skipping')
     outfile.close()
 
 
