@@ -12,6 +12,7 @@ import h5py
 import helper_functions as h
 import numpy as np
 from sklearn.decomposition import PCA
+import pandas as pd
 
 print("TensorFlow version: " + tf.__version__)
 ######################################################################################################################
@@ -22,36 +23,37 @@ sys.path.append(r"C:\Users\ella_\Documents\GitHub\graphs_and_topology_for_chemis
 #sys.path.append(r"C:\Users\ella_\Documents\GitHub\icosahedron_projection")
 
 # ############################### CHANGE THIS IF NECESSARY ###########################################################
-save_dir=r'F:\Nextcloud\science\Datasets\converted_pdbbind\v2020'
-data_dir=r'F:\Nextcloud\science\Datasets\pdbbind\v2020\PDBbind_v2020_refined'
-data_dir_core = r'F:\Nextcloud\science\Datasets\pdbbind\v2016\pdbbind_v2016_refined.tar\refined-set'
+save_dir=r'F:\Nextcloud\science\Datasets\converted_pdbbind\v2016'
+data_dir=r'F:\Nextcloud\science\Datasets\pdbbind\v2016\PDBbind_v2016_refined'
+data_dir_core = r'F:\Nextcloud\science\Datasets\pdbbind\v2016\pdbbind_v2016_refined'
 results_dir=r"F:\Nextcloud\science\results\topology_and_graphs\PDBBind"
 test_file='1a1e_pocket.pdb'
 test_file_ligand='1a1e_ligand.mol2'
 test_pdb_code='1a1e'
-out_file_name='PDBBind_refined_2020_topological_features.hdf5'
-core_out_file_name = 'PDBBind_core_2020_topological_features_good.hdf5'
+out_file_name='PDBBind_refined_2016_topological_features.hdf5'
+core_out_file_name = 'PDBBind_core_2016_topological_features.hdf5'
 
 #   core file names - you only need cluster and only have cluster for v2020
 core_name_file_name="" #"INDEX_core_name.2013",
 core_data_file_name="" #"INDEX_core_data.2020",
-core_cluster_file_name = "INDEX_core_cluster.2020"
+core_cluster_file_name = "INDEX_core_cluster.2016"
 #   refined file names - you only need cluster and only have cluster for v2020
 refined_name_file_name="" # "INDEX_refined_name.2020"
-refined_data_file_name="INDEX_refined_data.2020"
+refined_data_file_name="INDEX_refined_data.2016"
 refined_cluster_file_name = '' # refined doesn't have a cluster file
 # this is the number of complexes from core in the refined set
 # annoyingly you need to first make the full dataset, then remake the hdf5 once you've loaded the dataset
 # and checked.
 # and to make the full dataset you gotta remove the check for PDB codes in core which is janky
 # but I cant be arsed to rewrite it right now
-missing = 266 - 1
+missing = 190 #266 # - 1
 ######################################################################################################################
 
 ######################################################################################################################
 #####################################   Settings: Alter this    ######################################################
 ######################################################################################################################
-make_dataset=False # whether to recalc the dataset the dataset - saves as csv
+make_dataset=False #True # whether to recalc the dataset the dataset - saves as csv
+make_core_dataset=False #True # whether to recalc the core dataset
 make_hdf5=True # whether to make the hdf5 version
 # things to do a smaller set
 # chose via  specified range
@@ -62,10 +64,10 @@ do_PCA = False
 # set to zero to do all
 #ride= 0 #2 #21
 core_num_of_proteins = 0 #0 # 2 # used to make core csv file
-refined_remaining = 0 #2 # used to make refined csv file
+refined_remaining = 0#2 #0 #2 # used to make refined csv file
 
-num_of_core_proteins_override = 0 # 0 #2 # used for core hdf5
-num_of_refined_proteins_override = 0 #2 # used for refined hdf5
+num_of_core_proteins_override = 0#2 #0 # 0 #2 # used for core hdf5
+num_of_refined_proteins_override = 0#2 #0 #2 # used for refined hdf5
 #####################################################
 ##################################################################
 ####################################################################################################
@@ -119,7 +121,7 @@ dataset = np.zeros((Num_of_proteins, 36))
 
 print(out_file_name)
 
-if make_dataset:
+if make_core_dataset:
     #if core_num_of_proteins = 0
     #    core_num_of_proteins = Num_of_proteins
     #0## change this to 0 to do all of them
@@ -214,7 +216,7 @@ if make_hdf5:
     df_cluster = df_cluster_core
     topl_PDB_large = topl_PDB_all_core_large
 
-
+    actual_pdb_list=[]
     do_cluster=True
 
     if True:
@@ -339,6 +341,7 @@ if make_hdf5:
 
             # get the current PDB code
             current_code=PDB_List[mol_idx]
+            actual_pdb_list.append(current_code)
             # get the rows in the dataframes
             current_index_row=df_cluster.loc[df_cluster['PDB_code']==current_code]
             print(current_code)
@@ -397,6 +400,9 @@ if make_hdf5:
          #   ligand_name = current_data_row.iloc[0]['ligand name']
          #   ligand_ds[mol_idx] = ligand_name
         outfile.close()
+        df = pd.DataFrame(actual_pdb_list)
+        df.to_csv(os.path.join(save_dir,'actual_core_pdb_list.csv'))
+
 
 #exit(0)
 ######################################   end core dataset ############################################
@@ -418,7 +424,7 @@ if do_PCA:
 if make_hdf5:
     outfile = h5py.File(os.path.join(save_dir, out_file_name), "w")
     string_type = h5py.string_dtype(encoding='utf-8')
-
+    actual_pdb_list=[]
     PDB_List = df_data_refined['PDB_code'].to_list()
     df_index = df_data_refined
     df_data = df_data_refined
@@ -554,6 +560,7 @@ if make_hdf5:
                 # get the current PDB code
                 current_code = PDB_List[mol_idx]
                 if not current_code in PDB_List_core:
+                    actual_pdb_list.append(current_code)
                     if mol_idx % 50 == 0:
                         print('Got to Molecule no. ', mol_idx, PDB_List[mol_idx])
                     molID_ds[count] = mol_idx
@@ -618,6 +625,9 @@ if make_hdf5:
                 else:
                     print(f'{current_code} is in core dataset, skipping')
     outfile.close()
+    df = pd.DataFrame(actual_pdb_list)
+    df.to_csv(os.path.join(save_dir,'actual_refined_pdb_list.csv'))
+
 
 
 
