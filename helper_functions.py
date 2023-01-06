@@ -1949,4 +1949,84 @@ def join_featurisation_vectors(
 
     return new_X_data, new_y_data, new_smiles_list
 
+def set_up_2D_pipeline(verbose=True):
+    ## run this to set up pipeline
+    topol_metrics = [
+                {"metric": metric}
+                for metric in ["bottleneck", "wasserstein", "landscape", "persistence_image"]
+            ]
+
+    # Concatenate to generate 3 + 3 + (4 x 3) = 18 topological features
+    feature_union = make_union(
+                PersistenceEntropy(normalize=True),
+                NumberOfPoints(n_jobs=8),
+                *[Amplitude(**metric, n_jobs=8) for metric in topol_metrics]
+            )
+
+    ## then we use a pipeline to transform, the data and spit i out
+    # mwah hahahahaha
+    pipe = Pipeline(
+                [
+                    ("features", feature_union)
+                ]
+            )
+    if verbose:
+        print('Doing 12 (3 x 6) topology features:')
+        print('Persistence entropy\nnumber of points')
+        for m in topol_metrics:
+                    print(m)
+    return pipe, topol_metrics
+
+################ for 2D plots #############################################
+
+def topol_features_for_plots(coords,
+                             pipe=[],
+                             Num_of_features = 2,
+                             verbose=True):
+    """Does TDA on a 2D graph
+    coords = 2D point cloud
+    pipe = sklearn pipe for if you're doinmg more than persistence entropy
+    Num_of_featuers, set to 12 for using pipe"""
+    ## make topol features for plots
+
+    # Track connected components, loops, and voids
+    homology_dimensions = [0, 1]
+    # Collapse edges to speed up H2 persistence calculation!
+    persistence = VietorisRipsPersistence(
+            metric="manhattan", # as pixels are integers
+            homology_dimensions=homology_dimensions,
+            n_jobs=8,
+            collapse_edges=True,
+        )
+    if verbose:
+        print(f"{len(coords)} points")
+    if not len(coords) == 0:
+        reshaped_coords = coords[None, :, :]
+        diagrams_basic = persistence.fit_transform(reshaped_coords)
+        persistence_entropy = PersistenceEntropy()
+        if Num_of_features == 2:
+            X_basic = persistence_entropy.fit_transform(diagrams_basic)
+        elif Num_of_features == 12:
+            X_basic = pipe.fit_transform(diagrams_basic)
+    else:
+        # none of this color in image
+        X_basic = np.array([[0.0 for x in range(Num_of_features)]])
+    #topol_feat_list.append([x for x in X_basic[0]])
+    if verbose:
+        print(X_basic)
+    return X_basic
+
+def make_point_cloud_for_one_color(
+    img,
+    color):
+    """img is a PIL img thingy
+    Color is a number from 0 to 255
+    returns a numpy array of 2D points"""
+    # makes a point cloud where the third dimension is the color
+    x,y = np.where(img == color)
+    points=[]
+    for i in range(len(x)):
+        points.append([x[i],y[i]])
+    points=np.array(points)
+    return points
 
