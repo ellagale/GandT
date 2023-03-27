@@ -49,7 +49,7 @@ df_index_core, df_data_core, df_cluster_core = h.read_in_PDBBind_data(
     cluster_file_name = "INDEX_core_cluster.2013")
 
 #RUN THIS
-name_file_name="INDEX_refined_name.2013",
+name_file_name= "INDEX_refined_name.2013",
 data_file_name="INDEX_refined_data.2013",
 cluster_file_name = "INDEX_refined_cluster.2013"
 

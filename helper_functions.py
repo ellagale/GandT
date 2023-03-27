@@ -141,12 +141,13 @@ def read_in_PDBBind_data(
             if not line.startswith('#'):
                 if c == 0:
                     words = [x for x in line.split(' ') if not x == '']
+                    print(words)
                     # Not actually the last word!
                     last_word = words[-1].strip()
                     words[-1] = last_word
                      #last_word = '_'.join(last_word)
 
-                    new_line = words#[words[0], words[1], words[2], words[3], words[4], last_word, words[-1][1:-2]]
+                    new_line = words[:len(data_column_list_name)]#[words[0], words[1], words[2], words[3], words[4], last_word, words[-1][1:-2]]
                     # print(new_line)
                     lines.append(new_line)
                     # df_line = pd.DataFrame([new_line],columns=column_list)
@@ -155,6 +156,7 @@ def read_in_PDBBind_data(
                     # labels = line
 
         fh.close()
+        print('you got ot heere')
         df_data_core = pd.DataFrame(lines, columns=data_column_list_name)
         df_data_core.head()
         print('Sample of data file:')
