@@ -38,8 +38,8 @@ print(f'Using dataset {dataset_name}')
 is_classification = True
 current_ptr = 0
 
-make_dataset=True # whether to recalc the dataset
-make_hdf5 = False
+make_dataset=False # whether to recalc the dataset
+make_hdf5 = True
 
 do_specified_range = True
 # selected_range must be contiguous
@@ -61,6 +61,13 @@ Failures = []
 
 save_dir=r'F:\Nextcloud\science\Datasets\topol_datasets'
 results_dir=r"F:\Nextcloud\science\results\topology_and_graphs\d_" + dataset_name
+
+
+save_dir=r'C:\Users\eg16993\OneDrive - University of Bristol\Documents\Datasets\topol_datasets'
+data_dir=r'C:\Users\eg16993\OneDrive - University of Bristol\Documents\Datasets'
+results_dir=r"C:\Users\eg16993\OneDrive - University of Bristol\Documents\Results\graphs_and_topology\d_" + dataset_name
+
+
 test_file=dataset_name + '.csv'
 out_file_name=dataset_name + '_topological_features.hdf5'
 data_dir=r'F:\Nextcloud\science\Datasets'
