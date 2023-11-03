@@ -9,6 +9,7 @@
 ## MolID is not an integer
 ## SMILES input
 # haven't done the second half yet
+# need to actually run this, i think i need to turn the balancing transformer off for it to work!
 
 import sys
 sys.path.append(r"C:\Users\ella_\Documents\GitHub\graphs_and_topology_for_chemistry")
@@ -38,7 +39,7 @@ print(f'Using dataset {dataset_name}')
 is_classification = True
 current_ptr = 0
 
-make_dataset=False # whether to recalc the dataset
+make_dataset=True # whether to recalc the dataset
 make_hdf5 = True
 
 do_specified_range = True
@@ -48,8 +49,9 @@ num_of_molecules_to_do = len(selected_range)
 if do_specified_range:
     current_ptr = min(selected_range)
   ## change this to 0 to do all of them
-testing = False # whether to only do a few molecules
+testing = True # whether to only do a few molecules
 if testing:
+    selected_range = [0,1,2,3,4,5]
     num_of_molecules_to_do = len(selected_range)
 else:
     num_of_molecules_to_do: int = 0  # to go into functions, 0 is an override to do all
@@ -64,13 +66,13 @@ results_dir=r"F:\Nextcloud\science\results\topology_and_graphs\d_" + dataset_nam
 
 
 save_dir=r'C:\Users\eg16993\OneDrive - University of Bristol\Documents\Datasets\topol_datasets'
-data_dir=r'C:\Users\eg16993\OneDrive - University of Bristol\Documents\Datasets'
+data_dir=r'C:\Users\eg16993\OneDrive - University of Bristol\Documents\Datasets\topol_datasets'
 results_dir=r"C:\Users\eg16993\OneDrive - University of Bristol\Documents\Results\graphs_and_topology\d_" + dataset_name
 
 
 test_file=dataset_name + '.csv'
 out_file_name=dataset_name + '_topological_features.hdf5'
-data_dir=r'F:\Nextcloud\science\Datasets'
+#data_dir=r'F:\Nextcloud\science\Datasets'
 x_data_file_name = 'x_data_' + dataset_name + '.csv'
 y_data_file_name = 'y_data_' + dataset_name + '.csv'
 
@@ -156,25 +158,25 @@ sys.exit(0)
 topl_features_df = pd.read_csv(os.path.join(save_dir,x_data_file_name))
 topl_targets_df = pd.read_csv(os.path.join(save_dir,y_data_file_name))
 
-topl_bbbp_all_mat=topl_features_df
+topl_tox21_all_mat=topl_features_df
 
-bbbp_df=pd.read_csv(os.path.join(save_dir, dataset_name + '_SMILES.csv')) # has smiles strings
+tox21_df=pd.read_csv(os.path.join(save_dir, dataset_name + '_SMILES.csv')) # has smiles strings
 
 with open(os.path.join(save_dir,x_data_file_name), 'r') as read_obj:
     # pass the file object to reader() to get the reader object
     csv_reader = reader(read_obj)
     # Pass reader object to list() to get a list of lists
-    topl_bbbp_all_list = list(csv_reader)
-    print(topl_bbbp_all_list)
+    topl_tox21_all_list = list(csv_reader)
+    print(topl_tox21_all_list)
 
-topl_bbbp_all_list = np.array(topl_bbbp_all_list)
+topl_tox21_all_list = np.array(topl_tox21_all_list)
 
 with open(os.path.join(save_dir,y_data_file_name), 'r') as read_obj:
     # pass the file object to reader() to get the reader object
     csv_reader = reader(read_obj)
     # Pass reader object to list() to get a list of lists
-    targets_topl_bbbp_all_list = list(csv_reader)
-    #print(targets_topl_bbbp_all_list)
+    targets_topl_tox21_all_list = list(csv_reader)
+    #print(targets_topl_tox21_all_list)
 
 with open(os.path.join(save_dir,dataset_name + '_SMILES.csv'), 'r') as read_obj:
     # pass the file object to reader() to get the reader object
@@ -194,9 +196,9 @@ with open(os.path.join(save_dir,dataset_name + '_names.csv'), 'r') as read_obj:
 ################# now do the PCA ###################################################################################
 #pca = PCA(n_components=num_of_topol_features)
 pca = PCA(n_components=num_of_topol_features)
-principalComponents_large = pca.fit_transform(topl_bbbp_all_list)
+principalComponents_large = pca.fit_transform(topl_tox21_all_list)
 ####################################################################################################################
-#SMILES_list = bbbp_df['smiles']
+#SMILES_list = tox21_df['smiles']
 
 mol_idx = 0
 
@@ -210,7 +212,7 @@ if make_hdf5:
 
         if num_of_molecules_override == 0:
             # do all proteins woo
-            num_of_molecules_to_do=len(topl_bbbp_all_list)
+            num_of_molecules_to_do=len(topl_tox21_all_list)
 
         else:
             num_of_molecules_to_do = num_of_molecules_override
@@ -314,7 +316,7 @@ if make_hdf5:
             P_wasser_1_ds[mol_idx],P_wasser_2_ds[mol_idx], P_wasser_3_ds[mol_idx],
             P_landsc_1_ds[mol_idx], P_landsc_2_ds[mol_idx],P_landsc_3_ds[mol_idx],
             P_pers_img_1_ds[mol_idx],P_pers_img_2_ds[mol_idx],P_pers_img_3_ds[mol_idx]
-             ) = np.array(topl_bbbp_all_list[mol_idx], dtype='f8')
+             ) = np.array(topl_tox21_all_list[mol_idx], dtype='f8')
                 #                           PCs                         #
             (PCA_1_ds[mol_idx], PCA_2_ds[mol_idx], PCA_3_ds[mol_idx], PCA_4_ds[mol_idx], PCA_5_ds[mol_idx],
             PCA_6_ds[mol_idx], PCA_7_ds[mol_idx], PCA_8_ds[mol_idx], PCA_9_ds[mol_idx], PCA_10_ds[mol_idx],
@@ -324,25 +326,25 @@ if make_hdf5:
             # targets
             try:
                 # csvreader is being stupid and reading a 1 as 1.0.
-                target_ds[mol_idx] = np.array([int(float(x)) for x in targets_topl_bbbp_all_list[mol_idx]])
+                target_ds[mol_idx] = np.array([int(float(x)) for x in targets_topl_tox21_all_list[mol_idx]])
             except TypeError as e:
                 raise (e)
 
                 # # #                           targets                                         # # #
-            target_NR_AR_ds[mol_idx] = np.array(int(float(targets_topl_bbbp_all_list[mol_idx][0])), dtype='int8')
-            target_NR_AR_LBD_d[mol_idx] = np.array(int(float(targets_topl_bbbp_all_list[mol_idx][1])), dtype='int8')
-            target_NR_AhR_ds[mol_idx] = np.array(int(float(targets_topl_bbbp_all_list[mol_idx][2])), dtype='int8')
-            target_NR_Aromatase_ds[mol_idx] = np.array(int(float(targets_topl_bbbp_all_list[mol_idx][3])), dtype='int8')
-            target_NR_ER_LBD_ds[mol_idx] = np.array(int(float(targets_topl_bbbp_all_list[mol_idx][4])), dtype='int8')
-            target_NR_ER_LBD_ds[mol_idx] = np.array(int(float(targets_topl_bbbp_all_list[mol_idx][5])), dtype='int8')
-            target_NR_PPAR_gamma_ds[mol_idx] = np.array(int(float(targets_topl_bbbp_all_list[mol_idx][6])), dtype='int8')
-            target_SR_ARE_ds[mol_idx] = np.array(int(float(targets_topl_bbbp_all_list[mol_idx][7])), dtype='int8')
-            target_SR_ATAD5_ds[mol_idx] = np.array(int(float(targets_topl_bbbp_all_list[mol_idx][8])), dtype='int8')
-            target_SR_HSE_ds[mol_idx] = np.array(int(float(targets_topl_bbbp_all_list[mol_idx][9])), dtype='int8')
-            target_SR_MMP_ds[mol_idx] = np.array(int(float(targets_topl_bbbp_all_list[mol_idx][10])), dtype='int8')
-            target_SR_p53_ds[mol_idx] = np.array(int(float(targets_topl_bbbp_all_list[mol_idx][11])), dtype='int8')
+            target_NR_AR_ds[mol_idx] = np.array(int(float(targets_topl_tox21_all_list[mol_idx][0])), dtype='int8')
+            target_NR_AR_LBD_d[mol_idx] = np.array(int(float(targets_topl_tox21_all_list[mol_idx][1])), dtype='int8')
+            target_NR_AhR_ds[mol_idx] = np.array(int(float(targets_topl_tox21_all_list[mol_idx][2])), dtype='int8')
+            target_NR_Aromatase_ds[mol_idx] = np.array(int(float(targets_topl_tox21_all_list[mol_idx][3])), dtype='int8')
+            target_NR_ER_LBD_ds[mol_idx] = np.array(int(float(targets_topl_tox21_all_list[mol_idx][4])), dtype='int8')
+            target_NR_ER_LBD_ds[mol_idx] = np.array(int(float(targets_topl_tox21_all_list[mol_idx][5])), dtype='int8')
+            target_NR_PPAR_gamma_ds[mol_idx] = np.array(int(float(targets_topl_tox21_all_list[mol_idx][6])), dtype='int8')
+            target_SR_ARE_ds[mol_idx] = np.array(int(float(targets_topl_tox21_all_list[mol_idx][7])), dtype='int8')
+            target_SR_ATAD5_ds[mol_idx] = np.array(int(float(targets_topl_tox21_all_list[mol_idx][8])), dtype='int8')
+            target_SR_HSE_ds[mol_idx] = np.array(int(float(targets_topl_tox21_all_list[mol_idx][9])), dtype='int8')
+            target_SR_MMP_ds[mol_idx] = np.array(int(float(targets_topl_tox21_all_list[mol_idx][10])), dtype='int8')
+            target_SR_p53_ds[mol_idx] = np.array(int(float(targets_topl_tox21_all_list[mol_idx][11])), dtype='int8')
 
-            #target_norm_ds[mol_idx] = np.array(targets_topl_bbbp_all_list[mol_idx], dtype='f8')
+            #target_norm_ds[mol_idx] = np.array(targets_topl_tox21_all_list[mol_idx], dtype='f8')
 
     outfile.close()
 
