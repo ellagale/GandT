@@ -34,5 +34,5 @@ features, failures = h.make_rdkit_dataset(dataset_name,
                        output_file=output_file,
                        data_dir=data_dir,
                        save_dir=save_dir,
-                       column_heading_name=[],       
+                       column_heading_name=[],
                        column_heading_smiles=[])
