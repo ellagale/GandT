@@ -18,6 +18,7 @@ from gtda.diagrams import PersistenceEntropy
 from gtda.homology import VietorisRipsPersistence
 from rdkit.Chem import AllChem
 from rdkit import Chem
+from rdkit.Chem import Descriptors
 from scipy.spatial.transform import Rotation as R
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.pipeline import make_union, Pipeline
@@ -90,6 +91,119 @@ def coord_getter_2(file_location, setting='pdb'):
     return mol_orig, coords
 
 
+def gets_smiles_from_og_datasets(dataset_name):
+    """
+    Gives the name and SMILEs column heading for each dataset
+    """
+    smiles_column_name_in_orig_dataset = {}
+    smiles_column_name_in_orig_dataset['SAMPL'] = 'smiles'
+    smiles_column_name_in_orig_dataset['lipo'] = 'smiles'
+    smiles_column_name_in_orig_dataset['delaney'] = 'smiles'
+    smiles_column_name_in_orig_dataset['qm7'] = 'smiles'
+    smiles_column_name_in_orig_dataset['qm8'] = 'smiles'
+
+    names_column_name_in_orig_dataset = {}
+    names_column_name_in_orig_dataset['SAMPL'] = 'iupac'
+    names_column_name_in_orig_dataset['lipo'] = 'CMPD_CHEMBLID'
+    names_column_name_in_orig_dataset['delaney'] = 'Compound ID'
+    names_column_name_in_orig_dataset['qm7'] = 'smiles'
+    names_column_name_in_orig_dataset['qm8'] = 'smiles'
+
+    return names_column_name_in_orig_dataset[dataset_name], smiles_column_name_in_orig_dataset[dataset_name]
+
+
+def rdkit_from_smiles_list(smiles_list, names_list=[], number_to_run=''):
+    """
+    Does rdkit featurising from a smiles_list, returns dataframe of features and
+    a list of failures
+    inputs:
+    smiles_list: list of smiles strings
+    names_list: names for each molecule (will use numbers if not given)
+    number_to_run, set to a number to run the first 'x' instead of all of them
+    """
+    # feature dict for later dataframe
+    features = {}
+    # descriptors come from rdkit
+    descriptors = {d[0]: d[1] for d in Descriptors.descList}
+    # failure array for non-rdkit featurisable molecules
+    failures = []
+    # now we loop over and create molecules (with hydrogens)
+    if number_to_run == '':
+        # do all
+        number_to_run = len(smiles_list)
+    # loop over all smiles and featurise
+    for mol_num in range(number_to_run):
+
+        if len(names_list) == 0:
+            # use number indexing as empty list
+            this_molecule_name = mol_num
+        else:
+            this_molecule_name = names_list[mol_num]
+        if mol_num % 100 == 0:
+            print(f'Got to molecule {mol_num}: {this_molecule_name}: {smiles_list[mol_num]}')
+            print(f'Failures so far: {failures}')
+        # mol is rdkit molcule object, coords in atoms in spacec
+        try:
+            mol, coords = coord_creator(smiles_list[mol_num])
+
+        except ValueError as e:
+            print(e)
+            failures.append([mol_num, this_molecule_name])
+            continue
+
+        try:
+            # does the rdkit featurising
+            features[this_molecule_name] = {d: descriptors[d](mol) for d in descriptors}
+
+        except ValueError as e:
+            print(e)
+            failures.append([mol_num, this_molecule_name])
+            continue
+
+    features = pd.DataFrame.from_dict(features).T
+
+    return features, failures
+
+
+def make_rdkit_dataset(dataset_name,
+                       dataset_file='',
+                       output_file='',
+                       data_dir='',
+                       save_dir='',
+                       column_heading_name=[],
+                       column_heading_smiles=[]):
+    """
+    Reads the SMILEs column from a csv file and creates a rdkit dataset
+    use column_heading_num = MNone to override and use numbers as the names
+    """
+    override=False # set to true to use numbers for names
+    # open the original dataset
+    og_dataset = pd.read_csv(os.path.join(data_dir, dataset_file))
+    if output_file == '':
+        output_file = dataset_name + 'rdkit.csv'
+    if column_heading_name is None:
+        override = True
+        print('we will use numbers for names')
+    # get column headings
+    if column_heading_smiles == []:
+        # assume the heading is in the function
+        column_heading_name, column_heading_smiles = gets_smiles_from_og_datasets(dataset_name)
+        names_list = og_dataset[column_heading_name]
+    elif column_heading_name == []:
+        names_list = [x for x in range(len(column_heading_smiles))]
+
+    # make a list of SMILEs and names
+    print(f'First five names are:\n{names_list[:5]}')
+    smiles_list = og_dataset[column_heading_smiles]
+    print(f'First five SMILES are:\n{smiles_list[:5]}')
+    if override == True:
+        names_list = []
+    # and featurise with whatever rdkit offers
+    features, failures = rdkit_from_smiles_list(smiles_list, names_list)
+    # write it to a file
+    features.to_csv(os.path.join(save_dir, output_file))
+
+    return features, failures
 def read_in_PDBBind_data(
         data_dir,
         name_file_name="INDEX_core_name.2013",
