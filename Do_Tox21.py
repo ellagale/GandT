@@ -42,7 +42,7 @@ current_ptr = 0
 make_dataset=True # whether to recalc the dataset
 make_hdf5 = True
 
-do_specified_range = True
+do_specified_range = False
 # selected_range must be contiguous
 selected_range = [x for x in range(0,7831)]
 num_of_molecules_to_do = len(selected_range)
@@ -61,8 +61,8 @@ else:
 # BBBP has some molecules that cannot be featurised :(
 Failures = []
 
-save_dir=r'F:\Nextcloud\science\Datasets\topol_datasets'
-results_dir=r"F:\Nextcloud\science\results\topology_and_graphs\d_" + dataset_name
+#save_dir=r'F:\Nextcloud\science\Datasets\topol_datasets'
+#results_dir=r"F:\Nextcloud\science\results\topology_and_graphs\d_" + dataset_name
 
 
 save_dir=r'C:\Users\eg16993\OneDrive - University of Bristol\Documents\Datasets\topol_datasets'
