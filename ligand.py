@@ -82,7 +82,7 @@ data_dir = r"C:\Users\eg16993\OneDrive - University of Bristol\Documents\Dataset
 # from projection.pdbmolecule import PDBMolecule
 # from projection.mol2molecule import Mol2Molecule
 
-import helper_functions as h
+from src import helper_functions as h
 
 
 # from projection.face import Face

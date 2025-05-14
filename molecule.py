@@ -5,7 +5,7 @@ import rdkit.Chem
 import rdkit.Chem.AllChem
 import numpy as np
 import random
-from helper_functions import rotation_with_quaternion
+from src.helper_functions import rotation_with_quaternion
 
 class Molecule(object):
     """ Holds a molecule
