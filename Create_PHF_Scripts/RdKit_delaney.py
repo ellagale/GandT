@@ -13,15 +13,20 @@ import pandas as pd
 import os
 import sys
 from src import helper_functions as h
+from pathlib import Path
 
 dataset_name = 'delaney'
 print(f'Using dataset {dataset_name}')
 
 Failures = []  #
 
-save_dir = r'C:\Users\eg16993\OneDrive - University of Bristol\Documents\Datasets\topol_datasets'
-data_dir = r'C:\Users\eg16993\OneDrive - University of Bristol\Documents\Datasets'
-results_dir = r"C:\Users\eg16993\OneDrive - University of Bristol\Documents\Results\graphs_and_topology\d_" + dataset_name
+base_dir = Path.cwd().resolve().parent  # This assumes we are in Create_PHF_Scripts
+#save_dir = r'C:\Users\eg16993\OneDrive - University of Bristol\Documents\Datasets\topol_datasets'
+save_dir = base_dir / "output" / "converted" / f"d_{dataset_name}"
+#data_dir = r'C:\Users\eg16993\OneDrive - University of Bristol\Documents\Datasets'
+data_dir = base_dir / "datasets" / "Delaney"
+#results_dir = r"C:\Users\eg16993\OneDrive - University of Bristol\Documents\Results\graphs_and_topology\d_" + dataset_name
+results_dir = save_dir # / f"d_{dataset_name}"
 
 dataset_file = dataset_name + '.csv'
 output_file = dataset_name + '_rdkit.csv'

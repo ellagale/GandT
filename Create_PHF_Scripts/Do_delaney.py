@@ -1,12 +1,8 @@
 ######################################################################################################################
 ##########################   make topological features and put them into a hdf5 file #################################
 ######################################################################################################################
-##########################   delaney    ESOL    delaney     ESOL    #################################
+##########################   delaney    ESOL    delaney     ESOL    ##################################################
 ######################################################################################################################
-
-import sys
-sys.path.append(r"C:\Users\ella_\Documents\GitHub\graphs_and_topology_for_chemistry")
-sys.path.append(r"C:\Users\ella_\Documents\GitHub\icosahedron_projection")
 
 import deepchem as dc
 
@@ -21,6 +17,7 @@ from csv import reader
 import numpy as np
 import pandas as pd
 from sklearn.decomposition import PCA
+from pathlib import Path
 
 print("TensorFlow version: " + tf.__version__)
 
@@ -32,34 +29,39 @@ print(f'Using dataset {dataset_name}')
 is_classification = False
 current_ptr = 0
 
-make_dataset=False # whether to recalc the .csv dataset
-make_hdf5 = True
+make_dataset=True # whether to recalc the .csv dataset
+make_hdf5 = False
 
 do_specified_range = True
 selected_range = [x for x in range(1128)] # 4201
-num_of_molecules_to_do = len(selected_range)
+
 if do_specified_range:
-    current_ptr = min(selected_range)
-  ## change this to 0 to do all of them
-testing = False # whether to only do a few molecules
+    current_ptr = min(selected_range)  # change this to 0 to do all of them
+
+testing = True  # whether to only do a few molecules
 if testing:
-    num_of_molecules_to_do = len(selected_range)
+    num_of_molecules_to_do: int = len(selected_range)
 else:
     num_of_molecules_to_do: int = 0  # to go into functions, 0 is an override to do all
-#num_of_molecules_to_do = len(selected_range)
+
+do_PCA = False  # whether to do a PCA of the converted data
+
 ###########################################################################
 
-#delaney has some molecules that cannot be featurised :(
-Failures = [] #
+# Some datasets contain molecules that cannot be featurised
+Failures = []  # List of molecule IDs we expect to fail
+base_dir = Path.cwd().resolve().parent  # This assumes we are in Create_PHF_Scripts
+data_dir = base_dir / "datasets" / "Delaney"
+save_dir = base_dir / "output" / "converted" / f"d_{dataset_name}"
+results_dir = save_dir # / f"d_{dataset_name}"
+results_dir.mkdir(exist_ok=True)
 
-save_dir=r'C:\Users\eg16993\OneDrive - University of Bristol\Documents\Datasets\topol_datasets'
-data_dir=r'C:\Users\eg16993\OneDrive - University of Bristol\Documents\Datasets'
-results_dir=r"C:\Users\eg16993\OneDrive - University of Bristol\Documents\Results\graphs_and_topology\d_" + dataset_name
-
-test_file=dataset_name + '.csv'
+test_file = dataset_name + '.csv'
 out_file_name=dataset_name + '_topological_features.hdf5'
-x_data_file_name = 'x_data_' + dataset_name + '.csv'
-y_data_file_name = 'y_data_' + dataset_name + '.csv'
+x_data_file_name = f"x_data_{dataset_name}.csv"
+y_data_file_name = f"y_data_{dataset_name}.csv"
+x_data_path = str(save_dir / x_data_file_name)
+y_data_path = str(save_dir / y_data_file_name)
 
 
 
@@ -76,7 +78,7 @@ feature_name_list = ['pers_S_1', 'pers_S_2', 'pers_S_3',
                     'pers_img_1', 'pers_img_2', 'pers_img_3']
 num_of_topol_features = len(feature_name_list)
 
-#### Load data with no featurization
+# Load data with no featurization
 
 # This loads the data without doing any featurization
 # also does not splitting!
@@ -88,14 +90,9 @@ tasks, datasets, transformers = loader(
 dataset = datasets[0]
 num_of_molecules: int = len(dataset)
 
-# RUN THIS
-#make_dataset = False
-
-
-
 batch_size = 10
 if testing:
-    remaining = 9
+    remaining = 4
 elif do_specified_range:
     remaining = len(selected_range)
 else:
@@ -105,10 +102,10 @@ else:
 #                       Calculate the topological features and jot them down                                          #
 #######################################################################################################################
 
-#make_dataset = True
+
 if make_dataset:
-    with open(os.path.join(save_dir,x_data_file_name), 'w') as f:
-        with open(os.path.join(save_dir, y_data_file_name), 'w') as y_fh:
+    with open(x_data_path, 'w') as f:
+        with open(y_data_path, 'w') as y_fh:
             # train
             if not testing:
                 remaining = len(dataset)
@@ -141,18 +138,18 @@ if make_dataset:
 
     f.close()
 
-#sys.exit(0)
+# sys.exit(0)
 ##################################################################################################################
 #                               load data                                                                        #
 ##################################################################################################################
-topl_features_df = pd.read_csv(os.path.join(save_dir,x_data_file_name))
-topl_targets_df = pd.read_csv(os.path.join(save_dir,y_data_file_name))
+topl_features_df = pd.read_csv(str(save_dir / x_data_file_name))
+topl_targets_df = pd.read_csv(str(save_dir / y_data_file_name))
 
 topl_delaney_all_mat=topl_features_df
 
-delaney_df=pd.read_csv(os.path.join(save_dir, dataset_name + '_SMILES.csv')) # has smiles strings
+delaney_df = pd.read_csv(str(data_dir / f"{dataset_name}_SMILES.csv"))  # Load the SMILES strings
 
-with open(os.path.join(save_dir,x_data_file_name), 'r') as read_obj:
+with open(x_data_path, 'r') as read_obj:
     # pass the file object to reader() to get the reader object
     csv_reader = reader(read_obj)
     # Pass reader object to list() to get a list of lists
@@ -161,19 +158,20 @@ with open(os.path.join(save_dir,x_data_file_name), 'r') as read_obj:
 
 topl_delaney_all_list = np.array(topl_delaney_all_list)
 
-with open(os.path.join(save_dir,y_data_file_name), 'r') as read_obj:
+with open(y_data_path, 'r') as read_obj:
     # pass the file object to reader() to get the reader object
     csv_reader = reader(read_obj)
     # Pass reader object to list() to get a list of lists
     targets_topl_delaney_all_list = list(csv_reader)
-    #print(targets_topl_delaney_all_list)
+    # print(targets_topl_delaney_all_list)
 
-def read_extra_data(save_dir,
-                    dataset_name,
+
+def read_extra_data(data_dir: Path,
+                    dataset_name: str,
                     Failures=[],
                     filename_rider="_SMILES.csv"):
 
-    with open(os.path.join(save_dir, dataset_name + filename_rider), 'r') as read_obj:
+    with open(str(data_dir / f"{dataset_name}{filename_rider}"), 'r') as read_obj:
         # pass the file object to reader() to get the reader object
         csv_reader = reader(read_obj)
         # Pass reader object to list() to get a list of lists
@@ -182,47 +180,48 @@ def read_extra_data(save_dir,
 
     return SMILES_list
 
-SMILES_list = read_extra_data(save_dir, dataset_name, Failures,
+
+SMILES_list = read_extra_data(data_dir, dataset_name, Failures,
                     filename_rider="_SMILES.csv")
 
-names_list = read_extra_data(save_dir,dataset_name, Failures,
+names_list = read_extra_data(data_dir,dataset_name, Failures,
                     filename_rider="_names.csv")
 
-esol_pred_list = read_extra_data(save_dir,dataset_name, Failures,
+esol_pred_list = read_extra_data(data_dir,dataset_name, Failures,
                     filename_rider="_esol_pred.csv")
 
-min_deg_list = read_extra_data(save_dir,dataset_name, Failures,
+min_deg_list = read_extra_data(data_dir,dataset_name, Failures,
                     filename_rider="_min_deg.csv")
 
-MW_list = read_extra_data(save_dir,dataset_name, Failures,
+MW_list = read_extra_data(data_dir,dataset_name, Failures,
                     filename_rider="_MW.csv")
 
-num_H_bonds_list = read_extra_data(save_dir,dataset_name, Failures,
+num_H_bonds_list = read_extra_data(data_dir,dataset_name, Failures,
                     filename_rider="_num_H_bonds.csv")
 
-num_rings_list = read_extra_data(save_dir,dataset_name, Failures,
+num_rings_list = read_extra_data(data_dir,dataset_name, Failures,
                     filename_rider="_num_rings.csv")
 
-num_rot_bonds_list = read_extra_data(save_dir,dataset_name, Failures,
+num_rot_bonds_list = read_extra_data(data_dir,dataset_name, Failures,
                     filename_rider="_num_rot_bonds.csv")
 
-polar_surf_list = read_extra_data(save_dir,dataset_name, Failures,
+polar_surf_list = read_extra_data(data_dir,dataset_name, Failures,
                     filename_rider="_polar_surf.csv")
 
 
 
 
 ################# now do the PCA ###################################################################################
-#pca = PCA(n_components=num_of_topol_features)
-pca = PCA(n_components=num_of_topol_features)
-principalComponents_large = pca.fit_transform(topl_delaney_all_list)
+if do_PCA:
+    pca = PCA(n_components=num_of_topol_features)
+    principalComponents_large = pca.fit_transform(topl_delaney_all_list)
 ####################################################################################################################
-#SMILES_list = delaney_df['smiles']
+# SMILES_list = delaney_df['smiles']
 
 mol_idx = 0
 
 if make_hdf5:
-    outfile = h5py.File(os.path.join(save_dir,out_file_name),"w")
+    outfile = h5py.File(str(save_dir / out_file_name), "w")
     string_type = h5py.string_dtype(encoding='utf-8')
 
     num_of_molecules_override=0
@@ -238,7 +237,7 @@ if make_hdf5:
         print(f'Processing {num_of_molecules_to_do} molecules')
         ##################### set up the output datasets ################################
 
-        ## this sets up the output datasets
+        # this sets up the output datasets
 
         molID_ds = h.create_or_recreate_dataset(outfile, "molID", (num_of_molecules_to_do), dtype=np.int64)
         SMILES_ds = h.create_or_recreate_dataset(outfile, "SMILES", (num_of_molecules_to_do), dtype=string_type)
@@ -278,28 +277,29 @@ if make_hdf5:
         P_pers_img_2_ds = h.create_or_recreate_dataset(outfile, "pers_img_2", (num_of_molecules_to_do), dtype=np.float32)
         P_pers_img_3_ds = h.create_or_recreate_dataset(outfile, "pers_img_3", (num_of_molecules_to_do), dtype=np.float32)
 
+        if do_PCA:
             #                                       PCs                                                 #
-        PCA_1_ds = h.create_or_recreate_dataset(outfile, "PCA_1", (num_of_molecules_to_do), dtype=np.float32)
-        PCA_2_ds = h.create_or_recreate_dataset(outfile, "PCA_2", (num_of_molecules_to_do), dtype=np.float32)
-        PCA_3_ds = h.create_or_recreate_dataset(outfile, "PCA_3", (num_of_molecules_to_do), dtype=np.float32)
-        PCA_4_ds = h.create_or_recreate_dataset(outfile, "PCA_4", (num_of_molecules_to_do), dtype=np.float32)
-        PCA_5_ds = h.create_or_recreate_dataset(outfile, "PCA_5", (num_of_molecules_to_do), dtype=np.float32)
-        PCA_6_ds = h.create_or_recreate_dataset(outfile, "PCA_6", (num_of_molecules_to_do), dtype=np.float32)
-        PCA_7_ds = h.create_or_recreate_dataset(outfile, "PCA_7", (num_of_molecules_to_do), dtype=np.float32)
-        PCA_8_ds = h.create_or_recreate_dataset(outfile, "PCA_8", (num_of_molecules_to_do), dtype=np.float32)
-        PCA_9_ds = h.create_or_recreate_dataset(outfile, "PCA_9", (num_of_molecules_to_do), dtype=np.float32)
-        PCA_10_ds = h.create_or_recreate_dataset(outfile, "PCA_10", (num_of_molecules_to_do), dtype=np.float32)
-        PCA_11_ds = h.create_or_recreate_dataset(outfile, "PCA_11", (num_of_molecules_to_do), dtype=np.float32)
-        PCA_12_ds = h.create_or_recreate_dataset(outfile, "PCA_12", (num_of_molecules_to_do), dtype=np.float32)
-        PCA_13_ds = h.create_or_recreate_dataset(outfile, "PCA_13", (num_of_molecules_to_do), dtype=np.float32)
-        PCA_14_ds = h.create_or_recreate_dataset(outfile, "PCA_14", (num_of_molecules_to_do), dtype=np.float32)
-        PCA_15_ds = h.create_or_recreate_dataset(outfile, "PCA_15", (num_of_molecules_to_do), dtype=np.float32)
-        PCA_16_ds = h.create_or_recreate_dataset(outfile, "PCA_16", (num_of_molecules_to_do), dtype=np.float32)
-        PCA_17_ds = h.create_or_recreate_dataset(outfile, "PCA_17", (num_of_molecules_to_do), dtype=np.float32)
-        PCA_18_ds = h.create_or_recreate_dataset(outfile, "PCA_18", (num_of_molecules_to_do), dtype=np.float32)
+            PCA_1_ds = h.create_or_recreate_dataset(outfile, "PCA_1", (num_of_molecules_to_do), dtype=np.float32)
+            PCA_2_ds = h.create_or_recreate_dataset(outfile, "PCA_2", (num_of_molecules_to_do), dtype=np.float32)
+            PCA_3_ds = h.create_or_recreate_dataset(outfile, "PCA_3", (num_of_molecules_to_do), dtype=np.float32)
+            PCA_4_ds = h.create_or_recreate_dataset(outfile, "PCA_4", (num_of_molecules_to_do), dtype=np.float32)
+            PCA_5_ds = h.create_or_recreate_dataset(outfile, "PCA_5", (num_of_molecules_to_do), dtype=np.float32)
+            PCA_6_ds = h.create_or_recreate_dataset(outfile, "PCA_6", (num_of_molecules_to_do), dtype=np.float32)
+            PCA_7_ds = h.create_or_recreate_dataset(outfile, "PCA_7", (num_of_molecules_to_do), dtype=np.float32)
+            PCA_8_ds = h.create_or_recreate_dataset(outfile, "PCA_8", (num_of_molecules_to_do), dtype=np.float32)
+            PCA_9_ds = h.create_or_recreate_dataset(outfile, "PCA_9", (num_of_molecules_to_do), dtype=np.float32)
+            PCA_10_ds = h.create_or_recreate_dataset(outfile, "PCA_10", (num_of_molecules_to_do), dtype=np.float32)
+            PCA_11_ds = h.create_or_recreate_dataset(outfile, "PCA_11", (num_of_molecules_to_do), dtype=np.float32)
+            PCA_12_ds = h.create_or_recreate_dataset(outfile, "PCA_12", (num_of_molecules_to_do), dtype=np.float32)
+            PCA_13_ds = h.create_or_recreate_dataset(outfile, "PCA_13", (num_of_molecules_to_do), dtype=np.float32)
+            PCA_14_ds = h.create_or_recreate_dataset(outfile, "PCA_14", (num_of_molecules_to_do), dtype=np.float32)
+            PCA_15_ds = h.create_or_recreate_dataset(outfile, "PCA_15", (num_of_molecules_to_do), dtype=np.float32)
+            PCA_16_ds = h.create_or_recreate_dataset(outfile, "PCA_16", (num_of_molecules_to_do), dtype=np.float32)
+            PCA_17_ds = h.create_or_recreate_dataset(outfile, "PCA_17", (num_of_molecules_to_do), dtype=np.float32)
+            PCA_18_ds = h.create_or_recreate_dataset(outfile, "PCA_18", (num_of_molecules_to_do), dtype=np.float32)
             # # #                           targets                                         # # #
         target_ds = h.create_or_recreate_dataset(outfile, "p_np", (num_of_molecules_to_do), dtype=np.int8)
-        #target_norm_ds = h.create_or_recreate_dataset(outfile, "'p_np'_norm", (num_of_molecules_to_do,), dtype=np.float32)
+        # target_norm_ds = h.create_or_recreate_dataset(outfile, "'p_np'_norm", (num_of_molecules_to_do,), dtype=np.float32)
 
         for mol_idx in range(num_of_molecules_to_do):
             if mol_idx % 50 == 0:
@@ -350,10 +350,11 @@ if make_hdf5:
             P_pers_img_1_ds[mol_idx],P_pers_img_2_ds[mol_idx],P_pers_img_3_ds[mol_idx]
              ) = np.array(topl_delaney_all_list[mol_idx], dtype='f8')
                 #                           PCs                         #
-            (PCA_1_ds[mol_idx], PCA_2_ds[mol_idx], PCA_3_ds[mol_idx], PCA_4_ds[mol_idx], PCA_5_ds[mol_idx],
-            PCA_6_ds[mol_idx], PCA_7_ds[mol_idx], PCA_8_ds[mol_idx], PCA_9_ds[mol_idx], PCA_10_ds[mol_idx],
-            PCA_11_ds[mol_idx], PCA_12_ds[mol_idx], PCA_13_ds[mol_idx], PCA_14_ds[mol_idx], PCA_15_ds[mol_idx],
-            PCA_16_ds[mol_idx], PCA_17_ds[mol_idx], PCA_18_ds[mol_idx])=principalComponents_large[mol_idx]
+            if do_PCA:
+                (PCA_1_ds[mol_idx], PCA_2_ds[mol_idx], PCA_3_ds[mol_idx], PCA_4_ds[mol_idx], PCA_5_ds[mol_idx],
+                PCA_6_ds[mol_idx], PCA_7_ds[mol_idx], PCA_8_ds[mol_idx], PCA_9_ds[mol_idx], PCA_10_ds[mol_idx],
+                PCA_11_ds[mol_idx], PCA_12_ds[mol_idx], PCA_13_ds[mol_idx], PCA_14_ds[mol_idx], PCA_15_ds[mol_idx],
+                PCA_16_ds[mol_idx], PCA_17_ds[mol_idx], PCA_18_ds[mol_idx])=principalComponents_large[mol_idx]
 
             # targets
             try:
