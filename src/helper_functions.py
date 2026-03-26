@@ -220,19 +220,23 @@ def read_in_PDBBind_data(
     if not name_file_name == '':
         ## This reads in the pdb codes for each protein in the core dataset
         fh = open(os.path.join(data_dir, name_file_name), 'r')
-        c = 0
+        # c = 0
         lines = []
         for line in fh.readlines():
             if not line.startswith('#'):
-                if c == 0:
-                    words = [x for x in line.split(' ') if not x == '']
-                    last_word = words[-1]
-                    last_word = last_word[-1].strip()
-                    words[-1] = last_word
-                    #last_word = '_'.join(last_word)
-                    new_line = words
-                    # print(new_line)
-                    lines.append(new_line)
+                # sample line:
+                # 1ps3  2003  E.C.3.2.1.114   ALPHA-MANNOSIDASE II
+                new_line = [line[0:3], line[6:10], line[12:28].rstrip(), line[29:].rstrip()]
+                lines.append(new_line)
+                # if c == 0:
+                #     words = [x for x in line.split(' ') if not x == '']
+                #     last_word = words[-1]
+                #     last_word = last_word[-1].strip()
+                #     words[-1] = last_word
+                #     #last_word = '_'.join(last_word)
+                #     new_line = words
+                #     # print(new_line)
+                #     lines.append(new_line)
                     # df_line = pd.DataFrame([new_line],columns=column_list)
                     # print(df_line)
                     # df_index_core.append(df_line)
@@ -255,7 +259,7 @@ def read_in_PDBBind_data(
             if not line.startswith('#'):
                 if c == 0:
                     words = [x for x in line.split(' ') if not x == '']
-                    print(words)
+                    # print(words)
                     # Not actually the last word!
                     last_word = words[-1].strip()
                     words[-1] = last_word
@@ -282,23 +286,15 @@ def read_in_PDBBind_data(
         ## This reads in the cluster data for each protein in the core dataset
         ## the y values is the -logKd/Ki
         fh = open(os.path.join(data_dir, cluster_file_name), 'r')
-        c = 0
+        #c = 0
         lines = []
         for line in fh.readlines():
             if not line.startswith('#'):
-                if c == 0:
-                    words = [x for x in line.split(' ') if not x == '']
-                    #last_word = words[-1]
-                    last_word = words[-1].strip()
-                   # last_word = '_'.join(last_word)
-                    words[-1] = last_word
-                    new_line = words # [words[0], words[1], words[2], words[3], words[4], last_word]
-                    # print(new_line)
-                    lines.append(new_line)
-                    # df_line = pd.DataFrame([new_line],columns=column_list)
-                    # print(df_line)
-                    # df_index_core.append(df_line)
-                    # labels = line
+                # sample line:
+                # 1ps3   1.80  2003   2.28  Ki=5.2mM        3 23 <
+                words = [x for x in line.split(' ') if not x == '']
+                new_line = [words[0], words[1], words[2], words[3], words[4], ' '.join(words[5:]).rstrip()]
+                lines.append(new_line)
 
         fh.close()
         df_cluster_core = pd.DataFrame(lines, columns=cluster_column_list_name)
@@ -995,10 +991,10 @@ def generate_structure_from_smiles(smiles):
     # Generate a 3D structure from smiles
 
     mol = rdkit.Chem.MolFromSmiles(smiles)
-    mol = rdkit.AddHs(mol)
+    mol = Chem.AddHs(mol)
 
-    status = rdkit.AllChem.EmbedMolecule(mol)
-    status = rdkit.AllChem.UFFOptimizeMolecule(mol)
+    status = Chem.AllChem.EmbedMolecule(mol)
+    status = Chem.AllChem.UFFOptimizeMolecule(mol)
 
     conformer = mol.GetConformer()
     coordinates = conformer.GetPositions()
