@@ -92,7 +92,7 @@ num_of_molecules: int = len(dataset)
 
 batch_size = 10
 if testing:
-    remaining = 4
+    remaining = 2
 elif do_specified_range:
     remaining = len(selected_range)
 else:
