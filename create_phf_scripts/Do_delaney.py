@@ -30,7 +30,7 @@ is_classification = False
 current_ptr = 0
 
 make_dataset=True # whether to recalc the .csv dataset
-make_hdf5 = False
+make_hdf5 = True
 
 do_specified_range = True
 selected_range = [x for x in range(1128)] # 4201
