@@ -53,13 +53,18 @@ else:
 # BBBP has some molecules that cannot be featurised :(
 Failures = [59, 61, 179, 391, 614, 642, 645, 646, 647, 648, 649, 685, 1075, 1998]
 
-save_dir=r'F:\Nextcloud\science\Datasets\topol_datasets'
-results_dir=r"F:\Nextcloud\science\results\topology_and_graphs\d_" + dataset_name
-test_file=dataset_name + '.csv'
+base_dir = Path.cwd().resolve().parent  # This assumes we are in create_phf_scripts
+data_dir = base_dir / "datasets" / "Delaney"
+save_dir = base_dir / "output" / "converted" / f"d_{dataset_name}"
+results_dir = save_dir # / f"d_{dataset_name}"
+results_dir.mkdir(exist_ok=True)
+
+test_file = dataset_name + '.csv'
 out_file_name=dataset_name + '_topological_features.hdf5'
-data_dir=r'F:\Nextcloud\science\Datasets'
-x_data_file_name = 'x_data_' + dataset_name + '.csv'
-y_data_file_name = 'y_data_' + dataset_name + '.csv'
+x_data_file_name = f"x_data_{dataset_name}.csv"
+y_data_file_name = f"y_data_{dataset_name}.csv"
+x_data_path = str(save_dir / x_data_file_name)
+y_data_path = str(save_dir / y_data_file_name)
 
 loaders, classification_datasets, regression_datasets, metric_types = h.deepchem_dataset_dictionaries()
 loader = loaders[dataset_name]

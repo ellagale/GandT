@@ -52,14 +52,18 @@ else:
 #lipo has some molecules that cannot be featurised :(
 Failures = [3592] #
 
-save_dir=r'C:\Users\eg16993\OneDrive - University of Bristol\Documents\Datasets\topol_datasets'
-data_dir=r'C:\Users\eg16993\OneDrive - University of Bristol\Documents\Datasets'
-results_dir=r"C:\Users\eg16993\OneDrive - University of Bristol\Documents\Results\graphs_and_topology\d_" + dataset_name
+base_dir = Path.cwd().resolve().parent  # This assumes we are in create_phf_scripts
+data_dir = base_dir / "datasets" / "Delaney"
+save_dir = base_dir / "output" / "converted" / f"d_{dataset_name}"
+results_dir = save_dir # / f"d_{dataset_name}"
+results_dir.mkdir(exist_ok=True)
 
-test_file=dataset_name + '.csv'
+test_file = dataset_name + '.csv'
 out_file_name=dataset_name + '_topological_features.hdf5'
-x_data_file_name = 'x_data_' + dataset_name + '.csv'
-y_data_file_name = 'y_data_' + dataset_name + '.csv'
+x_data_file_name = f"x_data_{dataset_name}.csv"
+y_data_file_name = f"y_data_{dataset_name}.csv"
+x_data_path = str(save_dir / x_data_file_name)
+y_data_path = str(save_dir / y_data_file_name)
 
 
 
